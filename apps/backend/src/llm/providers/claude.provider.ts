@@ -14,7 +14,7 @@ export class ClaudeProvider implements ILLMProvider {
   private client: Anthropic;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('llm.anthropicApiKey');
+    const apiKey = this.configService.get<string>('llm.anthropicApiKey') || 'unused';
     this.client = new Anthropic({ apiKey });
   }
 

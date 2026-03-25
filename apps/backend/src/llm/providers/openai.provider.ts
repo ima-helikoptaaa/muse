@@ -14,7 +14,7 @@ export class OpenAIProvider implements ILLMProvider {
   private client: OpenAI;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('llm.openaiApiKey');
+    const apiKey = this.configService.get<string>('llm.openaiApiKey') || 'unused';
     this.client = new OpenAI({ apiKey });
   }
 
