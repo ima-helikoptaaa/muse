@@ -34,7 +34,6 @@ COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
 RUN npm ci --omit=dev
 
-COPY --from=builder /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
