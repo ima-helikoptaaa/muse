@@ -17,9 +17,11 @@ RUN npm ci
 COPY apps/backend/prisma ./apps/backend/prisma
 RUN cd apps/backend && npx prisma generate
 
-# Copy source and build
-COPY apps/backend ./apps/backend
+# Copy source and build shared first, then backend
 COPY packages/shared ./packages/shared
+RUN npm run build --workspace=packages/shared
+
+COPY apps/backend ./apps/backend
 RUN npm run build --workspace=apps/backend
 
 FROM node:20-alpine AS runner
@@ -37,6 +39,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 
 WORKDIR /app/apps/backend
 
