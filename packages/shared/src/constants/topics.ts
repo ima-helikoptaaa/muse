@@ -1,0 +1,30 @@
+export const AI_TOPICS = [
+  'Artificial Intelligence',
+  'Machine Learning',
+  'AI Agents',
+  'Agentic Memory',
+  'Agentic Workflows',
+  'LLM Advancements',
+  'LLM Training',
+  'LLM Fine-tuning',
+  'Agentic Frameworks',
+  'Retrieval Augmented Generation',
+  'Prompt Engineering',
+  'Multi-Agent Systems',
+  'AI Safety',
+  'Foundation Models',
+  'Transformer Architecture',
+  'Reinforcement Learning',
+  'Computer Vision',
+  'Natural Language Processing',
+] as const;
+
+export const AI_KEYWORDS = [
+  'ai', 'artificial intelligence', 'machine learning', 'ml', 'llm',
+  'large language model', 'gpt', 'claude', 'gemini', 'transformer',
+  'neural network', 'deep learning', 'agent', 'agentic', 'rag',
+  'fine-tuning', 'fine tuning', 'training', 'inference', 'embedding',
+  'vector', 'diffusion', 'multimodal', 'nlp', 'computer vision',
+  'reinforcement learning', 'rlhf', 'openai', 'anthropic', 'hugging face',
+  'langchain', 'llamaindex', 'autogen', 'crewai', 'prompt',
+] as const;

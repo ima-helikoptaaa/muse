@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────
+
+enum SourceType {
+  ARXIV
+  HACKER_NEWS
+  REDDIT
+  GITHUB_TRENDING
+  HUGGINGFACE
+  TECH_BLOG
+  PRODUCT_HUNT
+  TWITTER
+}
+
+enum ContentStatus {
+  IDEA
+  RESEARCHING
+  CREATING
+  READY
+  POSTED
+  ARCHIVED
+}
+
+enum ContentFormat {
+  BLOG_POST
+  YOUTUBE_VIDEO
+  LINKEDIN_POST
+  TWITTER_POST
+  MEME
+}
+
+enum Platform {
+  BLOG
+  YOUTUBE
+  LINKEDIN
+  TWITTER
+}
+
+enum ReminderType {
+  POST_CONTENT
+  BRAND_MEME
+  ENGAGEMENT
+  CUSTOM
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DISMISSED
+  ACTED
+}
+
+// ─── MODELS ──────────────────────────────────────────────
+
+model Source {
+  id          String     @id @default(cuid())
+  name        String
+  type        SourceType
+  url         String
+  enabled     Boolean    @default(true)
+  fetchConfig Json?
+  lastFetched DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  rawArticles RawArticle[]
+}
+
+model RawArticle {
+  id          String   @id @default(cuid())
+  sourceId    String
+  externalId  String?
+  title       String
+  url         String?
+  authors     String[]
+  summary     String?  @db.Text
+  content     String?  @db.Text
+  score       Float?
+  tags        String[]
+  publishedAt DateTime?
+  fetchedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  source      Source      @relation(fields: [sourceId], references: [id])
+  digestItems DigestItem[]
+
+  @@unique([sourceId, externalId])
+  @@index([fetchedAt])
+  @@index([sourceId])
+}
+
+model Digest {
+  id        String   @id @default(cuid())
+  title     String
+  summary   String?  @db.Text
+  dateFrom  DateTime
+  dateTo    DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        DigestItem[]
+  contentIdeas ContentIdea[]
+}
+
+model DigestItem {
+  id             String   @id @default(cuid())
+  digestId       String
+  rawArticleId   String
+  rank           Int
+  relevanceScore Float
+  aiSummary      String   @db.Text
+  topicTags      String[]
+  whyItMatters   String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  digest     Digest     @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  rawArticle RawArticle @relation(fields: [rawArticleId], references: [id])
+
+  @@unique([digestId, rawArticleId])
+  @@index([digestId])
+}
+
+model ContentIdea {
+  id             String        @id @default(cuid())
+  digestId       String?
+  title          String
+  description    String        @db.Text
+  format         ContentFormat
+  targetPlatform Platform
+  researchSteps  Json
+  talkingPoints  Json?
+  estimatedEffort String?
+  priority       Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  digest       Digest?       @relation(fields: [digestId], references: [id])
+  contentPiece ContentPiece?
+
+  @@index([format])
+  @@index([targetPlatform])
+}
+
+model ContentPiece {
+  id             String        @id @default(cuid())
+  ideaId         String?       @unique
+  title          String
+  body           String?       @db.Text
+  format         ContentFormat
+  targetPlatform Platform
+  status         ContentStatus @default(IDEA)
+  notes          String?       @db.Text
+  scheduledFor   DateTime?
+  postedAt       DateTime?
+  postedUrl      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  idea          ContentIdea?    @relation(fields: [ideaId], references: [id])
+  calendarEntry ContentCalendar?
+  metrics       PlatformMetric[]
+
+  @@index([status])
+  @@index([targetPlatform])
+  @@index([scheduledFor])
+}
+
+model ContentCalendar {
+  id             String   @id @default(cuid())
+  contentPieceId String   @unique
+  scheduledDate  DateTime
+  scheduledTime  String?
+  platform       Platform
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contentPiece ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledDate])
+}
+
+model Reminder {
+  id          String         @id @default(cuid())
+  type        ReminderType
+  title       String
+  message     String         @db.Text
+  platform    Platform?
+  status      ReminderStatus @default(PENDING)
+  scheduledAt DateTime
+  sentAt      DateTime?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([status, scheduledAt])
+}
+
+model PlatformMetric {
+  id             String    @id @default(cuid())
+  contentPieceId String?
+  platform       Platform
+  metricDate     DateTime
+  impressions    Int       @default(0)
+  clicks         Int       @default(0)
+  likes          Int       @default(0)
+  comments       Int       @default(0)
+  shares         Int       @default(0)
+  followers      Int?
+  engagementRate Float?
+  rawData        Json?
+  createdAt      DateTime  @default(now())
+
+  contentPiece ContentPiece? @relation(fields: [contentPieceId], references: [id])
+
+  @@unique([contentPieceId, platform, metricDate])
+  @@index([platform, metricDate])
+}
+
+model PipelineRun {
+  id          String    @id @default(cuid())
+  type        String
+  status      String    @default("running")
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  result      Json?
+  error       String?   @db.Text
+}
