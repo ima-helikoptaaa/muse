@@ -11,8 +11,8 @@ export class ScheduleService {
     @InjectQueue('muse-pipeline') private pipelineQueue: Queue,
   ) {}
 
-  // Daily at 6 AM: Discover new content
-  @Cron('0 6 * * *')
+  // Daily at midnight UTC: Discover new content (Twitter takes ~6h due to rate limits)
+  @Cron('0 0 * * *')
   async scheduledDiscovery() {
     this.logger.log('Triggering scheduled discovery...');
     await this.pipelineQueue.add('discovery', {}, { jobId: `discovery-${Date.now()}` });

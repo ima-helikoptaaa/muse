@@ -25,7 +25,11 @@ export class TwitterFetcher implements ISourceFetcher {
 
     const articles: FetchedArticle[] = [];
 
-    for (const username of accounts) {
+    // ~6 min between accounts = 60 accounts in ~6 hours, avoids rate limits
+    const delayMs = 6 * 60 * 1000;
+
+    for (let i = 0; i < accounts.length; i++) {
+      const username = accounts[i];
       try {
         const tweets = await this.fetchViaSyndication(username);
 
@@ -50,17 +54,22 @@ export class TwitterFetcher implements ISourceFetcher {
         }
 
         if (tweets.length > 0) {
-          this.logger.log(`Fetched ${tweets.length} tweets from @${username}`);
+          this.logger.log(
+            `Fetched ${tweets.length} tweets from @${username} (${i + 1}/${accounts.length})`,
+          );
         }
 
-        // 10s delay between accounts to respect rate limits
-        await new Promise((r) => setTimeout(r, 10000));
+        // Wait between accounts (skip delay after last one)
+        if (i < accounts.length - 1) {
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Failed to fetch tweets from @${username}: ${msg}`);
+        // On rate limit, wait double the normal delay
         if (msg.includes('429')) {
-          this.logger.warn('Rate limited, waiting 60s...');
-          await new Promise((r) => setTimeout(r, 60000));
+          this.logger.warn(`Rate limited, waiting ${(delayMs * 2) / 60000} min...`);
+          await new Promise((r) => setTimeout(r, delayMs * 2));
         }
       }
     }
