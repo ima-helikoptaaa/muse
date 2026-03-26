@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Parser from 'rss-parser';
 import axios from 'axios';
 import { Source } from '@prisma/client';
 import { FetchedArticle } from '@muse/shared';
@@ -10,16 +9,10 @@ import { ISourceFetcher } from '../fetcher.interface';
 export class TwitterFetcher implements ISourceFetcher {
   readonly sourceType = 'TWITTER';
   private readonly logger = new Logger(TwitterFetcher.name);
-  private readonly parser = new Parser();
 
   constructor(private configService: ConfigService) {}
 
   async fetch(source: Source): Promise<FetchedArticle[]> {
-    const rsshubBase = this.configService.get<string>(
-      'rsshub.baseUrl',
-      'http://localhost:1200',
-    );
-
     const config = source.fetchConfig as {
       accounts?: string[];
     } | null;
@@ -34,100 +27,101 @@ export class TwitterFetcher implements ISourceFetcher {
 
     for (const username of accounts) {
       try {
-        const feedUrl = `${rsshubBase}/twitter/user/${username}`;
-        const feed = await this.parser.parseURL(feedUrl);
+        const tweets = await this.fetchViaSyndication(username);
 
-        for (const item of feed.items.slice(0, 20)) {
-          if (!item.title && !item.contentSnippet) continue;
+        for (const tweet of tweets.slice(0, 10)) {
+          if (tweet.text.length < 30) continue;
 
-          const text = item.contentSnippet || item.title || '';
-
-          // Skip very short tweets with no substance
-          if (text.length < 30) continue;
+          const score =
+            (tweet.likes || 0) +
+            (tweet.retweets || 0) * 2 +
+            (tweet.quotes || 0) * 3;
 
           articles.push({
-            externalId: `tweet-${username}-${item.guid || item.link || item.title}`,
-            title: `@${username}: ${text.slice(0, 120)}${text.length > 120 ? '...' : ''}`,
-            url: item.link || `https://x.com/${username}`,
+            externalId: `tweet-${username}-${tweet.id}`,
+            title: `@${username}: ${tweet.text.slice(0, 120)}${tweet.text.length > 120 ? '...' : ''}`,
+            url: `https://x.com/${username}/status/${tweet.id}`,
             authors: [username],
-            summary: text,
-            score: undefined,
+            summary: tweet.text,
+            score: score > 0 ? score : undefined,
             tags: ['twitter', `@${username}`],
-            publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+            publishedAt: tweet.createdAt ? new Date(tweet.createdAt) : undefined,
           });
         }
 
-        this.logger.log(
-          `Fetched ${feed.items.length} tweets from @${username} via RSSHub`,
-        );
+        if (tweets.length > 0) {
+          this.logger.log(`Fetched ${tweets.length} tweets from @${username}`);
+        }
 
-        // Small delay between accounts to be nice to RSSHub
-        await new Promise((r) => setTimeout(r, 500));
+        // 10s delay between accounts to respect rate limits
+        await new Promise((r) => setTimeout(r, 10000));
       } catch (error) {
-        this.logger.warn(
-          `Failed to fetch tweets from @${username} via RSSHub: ${error instanceof Error ? error.message : error}`,
-        );
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to fetch tweets from @${username}: ${msg}`);
+        if (msg.includes('429')) {
+          this.logger.warn('Rate limited, waiting 60s...');
+          await new Promise((r) => setTimeout(r, 60000));
+        }
       }
     }
-
-    // Enrich tweets with engagement scores via syndication API
-    await this.enrichWithEngagement(articles);
 
     return articles;
   }
 
-  /**
-   * Fetches like/retweet counts from Twitter's public syndication endpoint.
-   * No auth required. Calculates engagement score: likes + retweets*2 + quotes*3
-   */
-  private async enrichWithEngagement(articles: FetchedArticle[]): Promise<void> {
-    let enriched = 0;
+  private async fetchViaSyndication(username: string) {
+    const res = await axios.get(
+      `https://syndication.twitter.com/srv/timeline-profile/screen-name/${username}`,
+      {
+        timeout: 15000,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      },
+    );
 
-    // Process in batches of 5 to avoid hammering the endpoint
-    for (let i = 0; i < articles.length; i += 5) {
-      const batch = articles.slice(i, i + 5);
+    const html = res.data as string;
+    const tweets: Array<{
+      id: string;
+      text: string;
+      likes: number;
+      retweets: number;
+      quotes: number;
+      createdAt: string | null;
+    }> = [];
 
-      await Promise.all(
-        batch.map(async (article) => {
-          try {
-            const tweetId = this.extractTweetId(article.url);
-            if (!tweetId) return;
+    // Extract JSON data from script tags
+    const scriptMatch = html.match(
+      /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (scriptMatch) {
+      try {
+        const data = JSON.parse(scriptMatch[1]);
+        const entries =
+          data?.props?.pageProps?.timeline?.entries ||
+          data?.props?.pageProps?.timeline?.timeline?.entries ||
+          [];
 
-            const res = await axios.get(
-              `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=0`,
-              { timeout: 5000 },
-            );
+        for (const entry of entries) {
+          const tweet = entry?.content?.tweet || entry?.tweet;
+          if (!tweet?.id_str) continue;
 
-            const data = res.data;
-            if (!data || !data.favorite_count) return;
-
-            const likes = data.favorite_count || 0;
-            const retweets = data.retweet_count || 0;
-            const quotes = data.quote_count || 0;
-
-            article.score = likes + retweets * 2 + quotes * 3;
-            enriched++;
-          } catch {
-            // Silently skip — engagement is nice-to-have, not critical
-          }
-        }),
-      );
-
-      // Small delay between batches
-      if (i + 5 < articles.length) {
-        await new Promise((r) => setTimeout(r, 300));
+          tweets.push({
+            id: tweet.id_str,
+            text: tweet.full_text || tweet.text || '',
+            likes: tweet.favorite_count || 0,
+            retweets: tweet.retweet_count || 0,
+            quotes: tweet.quote_count || 0,
+            createdAt: tweet.created_at || null,
+          });
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to parse syndication data for @${username}`);
       }
     }
 
-    this.logger.log(
-      `Enriched ${enriched}/${articles.length} tweets with engagement scores`,
-    );
-  }
-
-  private extractTweetId(url?: string): string | null {
-    if (!url) return null;
-    // URL format: https://x.com/username/status/1234567890
-    const match = url.match(/status\/(\d+)/);
-    return match ? match[1] : null;
+    return tweets;
   }
 }
