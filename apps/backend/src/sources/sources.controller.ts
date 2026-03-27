@@ -6,9 +6,11 @@ import {
   Param,
   Query,
   Patch,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { SourcesService } from './sources.service';
 import { SourceType } from '@prisma/client';
+import { IngestArticlesDto } from './dto/ingest-articles.dto';
 
 @Controller('sources')
 export class SourcesController {
@@ -46,14 +48,14 @@ export class SourcesController {
   }
 
   @Post('fetch/:type')
-  fetchByType(@Param('type') type: SourceType) {
+  fetchByType(
+    @Param('type', new ParseEnumPipe(SourceType)) type: SourceType,
+  ) {
     return this.sourcesService.fetchByType(type);
   }
 
   @Post('articles/ingest')
-  ingestArticles(
-    @Body() body: { sourceType: SourceType; articles: any[] },
-  ) {
+  ingestArticles(@Body() body: IngestArticlesDto) {
     return this.sourcesService.ingestArticles(body.sourceType, body.articles);
   }
 

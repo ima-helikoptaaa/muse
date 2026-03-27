@@ -97,7 +97,7 @@ export class SourcesService {
 
     try {
       const articles = await fetcher.fetch(source);
-      const stored = await this.storeArticles(source.id, articles);
+      const { stored } = await this.storeArticles(source.id, articles);
 
       await this.prisma.source.update({
         where: { id: source.id },
@@ -117,16 +117,19 @@ export class SourcesService {
   async ingestArticles(
     sourceType: SourceType,
     articles: FetchedArticle[],
-  ): Promise<{ stored: number }> {
-    const source = await this.prisma.source.findFirst({
+  ): Promise<{ stored: number; created: number }> {
+    const sources = await this.prisma.source.findMany({
       where: { type: sourceType, enabled: true },
+      orderBy: { createdAt: 'asc' },
+      take: 1,
     });
+    const source = sources[0];
     if (!source) {
       this.logger.warn(`No enabled source found for type: ${sourceType}`);
-      return { stored: 0 };
+      return { stored: 0, created: 0 };
     }
 
-    const stored = await this.storeArticles(source.id, articles);
+    const { stored, created } = await this.storeArticles(source.id, articles);
 
     await this.prisma.source.update({
       where: { id: source.id },
@@ -134,19 +137,32 @@ export class SourcesService {
     });
 
     this.logger.log(
-      `Ingested ${stored} articles for ${sourceType} from remote discovery`,
+      `Ingested ${stored} articles (${created} new) for ${sourceType} from remote discovery`,
     );
-    return { stored };
+    return { stored, created };
   }
 
   private async storeArticles(
     sourceId: string,
     articles: FetchedArticle[],
-  ): Promise<number> {
+  ): Promise<{ stored: number; created: number }> {
     let stored = 0;
+    let created = 0;
 
     for (const article of articles) {
+      if (!article.externalId) {
+        this.logger.warn(`Skipping article with empty externalId: ${article.title}`);
+        continue;
+      }
+
       try {
+        const existing = await this.prisma.rawArticle.findUnique({
+          where: {
+            sourceId_externalId: { sourceId, externalId: article.externalId },
+          },
+          select: { id: true },
+        });
+
         await this.prisma.rawArticle.upsert({
           where: {
             sourceId_externalId: {
@@ -174,6 +190,7 @@ export class SourcesService {
           },
         });
         stored++;
+        if (!existing) created++;
       } catch (error) {
         this.logger.warn(
           `Failed to store article: ${article.title}`,
@@ -182,7 +199,7 @@ export class SourcesService {
       }
     }
 
-    return stored;
+    return { stored, created };
   }
 
   async getArticles(options?: {

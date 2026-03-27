@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import { createHash } from 'crypto';
 import Parser from 'rss-parser';
 import { Source } from '@prisma/client';
 import { FetchedArticle } from '@muse/shared';
@@ -18,12 +19,20 @@ export class HuggingFaceFetcher implements ISourceFetcher {
     try {
       const { data: papers } = await axios.get(
         'https://huggingface.co/api/daily_papers',
+        { timeout: 15000 },
       );
 
       for (const paper of papers || []) {
+        const title = paper.title || paper.paper?.title || '';
+        const externalId = paper.paper?.id || paper.id;
+        if (!externalId) {
+          this.logger.warn(`Skipping HF paper with no ID: ${title}`);
+          continue;
+        }
+
         articles.push({
-          externalId: paper.paper?.id || paper.id || String(Math.random()),
-          title: paper.title || paper.paper?.title || '',
+          externalId,
+          title,
           url: paper.paper?.id
             ? `https://huggingface.co/papers/${paper.paper.id}`
             : undefined,
@@ -49,8 +58,14 @@ export class HuggingFaceFetcher implements ISourceFetcher {
       );
 
       for (const item of feed.items?.slice(0, 20) || []) {
+        const externalId = item.guid || item.link;
+        if (!externalId) {
+          this.logger.warn(`Skipping HF blog item with no ID: ${item.title}`);
+          continue;
+        }
+
         articles.push({
-          externalId: item.guid || item.link || '',
+          externalId,
           title: item.title || '',
           url: item.link,
           authors: item.creator ? [item.creator] : [],

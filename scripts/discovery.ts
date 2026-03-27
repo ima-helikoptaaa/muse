@@ -97,14 +97,37 @@ async function main() {
         continue;
       }
 
-      // 3. Push to AWS backend
-      const { data: result } = await api.post('/sources/articles/ingest', {
-        sourceType: source.type,
-        articles,
-      });
+      // 3. Push to AWS backend in batches (avoid nginx body size limits)
+      const BATCH_SIZE = 50;
+      const MAX_RETRIES = 3;
+      let sourceIngested = 0;
 
-      console.log(`[discovery] ${source.name}: ${result.stored} articles ingested`);
-      totalIngested += result.stored;
+      for (let b = 0; b < articles.length; b += BATCH_SIZE) {
+        const batch = articles.slice(b, b + BATCH_SIZE);
+        let attempt = 0;
+        while (attempt < MAX_RETRIES) {
+          try {
+            const { data: result } = await api.post('/sources/articles/ingest', {
+              sourceType: source.type,
+              articles: batch,
+            });
+            sourceIngested += result.stored;
+            break;
+          } catch (pushErr) {
+            attempt++;
+            if (attempt >= MAX_RETRIES) {
+              console.error(`[discovery] Failed to push batch after ${MAX_RETRIES} retries:`, (pushErr as Error).message);
+              break;
+            }
+            const delay = attempt * 2000;
+            console.warn(`[discovery] Push failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${delay}ms...`);
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
+      }
+
+      console.log(`[discovery] ${source.name}: ${sourceIngested} articles ingested`);
+      totalIngested += sourceIngested;
     } catch (err) {
       console.error(`[discovery] Failed ${source.name}:`, (err as Error).message);
     }

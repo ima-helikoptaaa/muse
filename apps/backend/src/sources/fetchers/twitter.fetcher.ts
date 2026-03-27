@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import { Source } from '@prisma/client';
 import { FetchedArticle } from '@muse/shared';
 import { ISourceFetcher } from '../fetcher.interface';
@@ -27,6 +27,8 @@ export class TwitterFetcher implements ISourceFetcher {
     }
 
     const articles: FetchedArticle[] = [];
+    let retries = 0;
+    const MAX_RETRIES = 2;
 
     for (let i = 0; i < accounts.length; i++) {
       const username = accounts[i];
@@ -37,9 +39,10 @@ export class TwitterFetcher implements ISourceFetcher {
       try {
         const { tweets, headers } = await this.fetchViaSyndication(username);
         this.updateRateLimit(headers);
+        retries = 0;
 
         for (const tweet of tweets.slice(0, 10)) {
-          if (tweet.text.length < 30) continue;
+          if (!tweet.text || tweet.text.length < 30) continue;
 
           const score =
             (tweet.likes || 0) +
@@ -64,20 +67,46 @@ export class TwitterFetcher implements ISourceFetcher {
           );
         }
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Failed to fetch tweets from @${username}: ${msg}`);
+        const axiosErr = error as AxiosError;
 
-        if (msg.includes('429')) {
-          // Force wait for reset on 429
-          if (this.rateLimitReset) {
+        // Extract rate limit headers from 429 error responses
+        if (axiosErr.response?.status === 429) {
+          this.updateRateLimit(this.extractHeaders(axiosErr.response));
+
+          if (this.rateLimitReset && retries < MAX_RETRIES) {
+            retries++;
+            this.logger.warn(
+              `Rate limited on @${username}, reset in ${this.getSecondsUntilReset()}s — will wait and resume (retry ${retries}/${MAX_RETRIES})`,
+            );
             this.rateLimitRemaining = 0;
             await this.waitForRateLimit();
+            // Retry this account after waiting
+            i--;
+            continue;
           }
+
+          // No reset header — fall back to 60s wait, don't retry
+          this.logger.warn(`Rate limited on @${username}, no reset header — waiting 60s`);
+          await new Promise((r) => setTimeout(r, 60_000));
+          continue;
         }
+
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to fetch tweets from @${username}: ${msg}`);
       }
     }
 
     return articles;
+  }
+
+  private extractHeaders(response: AxiosResponse | undefined): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (!response?.headers) return headers;
+    for (const key of ['x-rate-limit-remaining', 'x-rate-limit-reset', 'x-rate-limit-limit']) {
+      const val = response.headers[key];
+      if (val) headers[key] = String(val);
+    }
+    return headers;
   }
 
   private updateRateLimit(headers: Record<string, string>) {
@@ -85,22 +114,27 @@ export class TwitterFetcher implements ISourceFetcher {
     const reset = headers['x-rate-limit-reset'];
 
     if (remaining !== undefined) {
-      this.rateLimitRemaining = parseInt(remaining, 10);
+      const parsed = parseInt(remaining, 10);
+      if (!isNaN(parsed)) this.rateLimitRemaining = parsed;
     }
     if (reset !== undefined) {
-      this.rateLimitReset = parseInt(reset, 10);
+      const parsed = parseInt(reset, 10);
+      if (!isNaN(parsed)) this.rateLimitReset = parsed;
     }
+  }
+
+  private getSecondsUntilReset(): number {
+    if (!this.rateLimitReset) return 0;
+    return Math.max(0, this.rateLimitReset - Math.floor(Date.now() / 1000));
   }
 
   private async waitForRateLimit() {
     if (this.rateLimitRemaining !== null && this.rateLimitRemaining <= 1 && this.rateLimitReset) {
-      const now = Math.floor(Date.now() / 1000);
-      const waitSec = this.rateLimitReset - now + 10;
+      const waitSec = this.getSecondsUntilReset() + 10;
 
       if (waitSec > 0) {
         this.logger.log(`Rate limit exhausted, waiting ${waitSec}s for reset...`);
         await new Promise((r) => setTimeout(r, waitSec * 1000));
-        // Reset tracking after waiting
         this.rateLimitRemaining = null;
         this.rateLimitReset = null;
       }
@@ -121,11 +155,7 @@ export class TwitterFetcher implements ISourceFetcher {
       },
     );
 
-    const headers: Record<string, string> = {};
-    for (const key of ['x-rate-limit-remaining', 'x-rate-limit-reset', 'x-rate-limit-limit']) {
-      const val = res.headers[key];
-      if (val) headers[key] = String(val);
-    }
+    const headers = this.extractHeaders(res);
 
     const html = res.data as string;
     const tweets: Array<{
@@ -137,17 +167,26 @@ export class TwitterFetcher implements ISourceFetcher {
       createdAt: string | null;
     }> = [];
 
-    // Extract JSON data from script tags
     const scriptMatch = html.match(
       /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
     );
-    if (scriptMatch) {
+    if (!scriptMatch) {
+      this.logger.error(
+        `Twitter syndication DOM changed: __NEXT_DATA__ script tag not found for @${username}. Fetcher may need updating.`,
+      );
+    } else {
       try {
         const data = JSON.parse(scriptMatch[1]);
         const entries =
           data?.props?.pageProps?.timeline?.entries ||
           data?.props?.pageProps?.timeline?.timeline?.entries ||
           [];
+
+        if (entries.length === 0) {
+          this.logger.warn(
+            `No timeline entries found in syndication data for @${username} — structure may have changed`,
+          );
+        }
 
         for (const entry of entries) {
           const tweet = entry?.content?.tweet || entry?.tweet;
@@ -163,7 +202,7 @@ export class TwitterFetcher implements ISourceFetcher {
           });
         }
       } catch (e) {
-        this.logger.warn(`Failed to parse syndication data for @${username}`);
+        this.logger.error(`Failed to parse syndication JSON for @${username}`, e);
       }
     }
 

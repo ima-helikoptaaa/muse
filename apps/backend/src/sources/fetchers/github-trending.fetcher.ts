@@ -60,9 +60,15 @@ export class GitHubTrendingFetcher implements ISourceFetcher {
         });
       });
 
-      this.logger.log(
-        `Fetched ${articles.length} AI-relevant repos from GitHub Trending`,
-      );
+      if (articles.length === 0) {
+        this.logger.warn(
+          'GitHub Trending returned 0 AI-relevant repos — DOM selectors may have changed (article.Box-row, h2 a, etc.)',
+        );
+      } else {
+        this.logger.log(
+          `Fetched ${articles.length} AI-relevant repos from GitHub Trending`,
+        );
+      }
     } catch (error) {
       this.logger.error('Failed to fetch GitHub Trending', error);
     }

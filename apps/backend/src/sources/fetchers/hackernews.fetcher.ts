@@ -34,11 +34,13 @@ export class HackerNewsFetcher implements ISourceFetcher {
       const articles: FetchedArticle[] = [];
 
       for (let i = 0; i < top100.length; i += batchSize) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 500));
+
         const batch = top100.slice(i, i + batchSize);
         const items = await Promise.all(
           batch.map((id) =>
             axios
-              .get<HNItem>(`${HN_API}/item/${id}.json`)
+              .get<HNItem>(`${HN_API}/item/${id}.json`, { timeout: 10000 })
               .then((r) => r.data)
               .catch(() => null),
           ),

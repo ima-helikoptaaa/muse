@@ -7,9 +7,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_FILE="/tmp/muse-discovery.log"
+LOCK_FILE="/tmp/muse-discovery.lock"
 ENV_FILE="$PROJECT_DIR/.env.local"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+# Rotate log if over 5MB
+if [ -f "$LOG_FILE" ] && [ "$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)" -gt 5242880 ]; then
+  mv "$LOG_FILE" "$LOG_FILE.old"
+fi
+
+# Acquire exclusive lock (non-blocking) — exit if already running
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  log "Another discovery run is already in progress, exiting."
+  exit 0
+fi
 
 log "=== Discovery run starting ==="
 

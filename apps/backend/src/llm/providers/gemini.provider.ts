@@ -100,11 +100,25 @@ export class GeminiProvider implements ILLMProvider {
     const result = await this.complete(messages, {
       ...options,
       temperature: options?.temperature ?? 0.3,
+      maxTokens: options?.maxTokens || 8192,
     });
+
+    if (!result.content || !result.content.trim()) {
+      throw new Error(
+        `Gemini returned empty response (usage: ${result.usage.inputTokens} in / ${result.usage.outputTokens} out)`,
+      );
+    }
 
     const jsonMatch = result.content.match(/```json\s*([\s\S]*?)\s*```/);
     const jsonStr = jsonMatch ? jsonMatch[1] : result.content;
 
-    return JSON.parse(jsonStr.trim());
+    try {
+      return JSON.parse(jsonStr.trim());
+    } catch (e) {
+      this.logger.error(
+        `Failed to parse Gemini JSON response (${jsonStr.length} chars): ${jsonStr.slice(0, 200)}...`,
+      );
+      throw new Error(`Gemini returned invalid JSON: ${(e as Error).message}`);
+    }
   }
 }

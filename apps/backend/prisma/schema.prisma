@@ -63,7 +63,7 @@ model Source {
 model RawArticle {
   id          String   @id @default(cuid())
   sourceId    String
-  externalId  String?
+  externalId  String
   title       String
   url         String?
   authors     String[]
@@ -75,7 +75,7 @@ model RawArticle {
   fetchedAt   DateTime @default(now())
   createdAt   DateTime @default(now())
 
-  source      Source      @relation(fields: [sourceId], references: [id])
+  source      Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   digestItems DigestItem[]
 
   @@unique([sourceId, externalId])
@@ -176,7 +176,7 @@ model ContentCalendar {
 
 model PlatformMetric {
   id             String    @id @default(cuid())
-  contentPieceId String?
+  contentPieceId String
   platform       Platform
   metricDate     DateTime
   impressions    Int       @default(0)
@@ -189,7 +189,7 @@ model PlatformMetric {
   rawData        Json?
   createdAt      DateTime  @default(now())
 
-  contentPiece ContentPiece? @relation(fields: [contentPieceId], references: [id])
+  contentPiece ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
 
   @@unique([contentPieceId, platform, metricDate])
   @@index([platform, metricDate])
