@@ -9,16 +9,9 @@ export default () => ({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
   llm: {
-    provider: process.env.LLM_PROVIDER || 'claude',
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
-    geminiApiKey: process.env.GEMINI_API_KEY,
     googleCredentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS,
     googleProjectId: process.env.GOOGLE_PROJECT_ID,
-    googleLocation: process.env.GOOGLE_LOCATION || 'us-central1',
-  },
-  rsshub: {
-    baseUrl: process.env.RSSHUB_URL || 'http://localhost:1200',
+    googleLocation: process.env.GOOGLE_LOCATION || 'global',
   },
   reddit: {
     clientId: process.env.REDDIT_CLIENT_ID,

@@ -23,7 +23,7 @@ export class GeminiProvider implements ILLMProvider {
       'llm.googleCredentialsPath',
     );
     const projectId = this.configService.get<string>('llm.googleProjectId');
-    const location = this.configService.get<string>('llm.googleLocation') || 'us-central1';
+    const location = this.configService.get<string>('llm.googleLocation') || 'global';
 
     if (credentialsPath) {
       process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsPath;
@@ -32,6 +32,9 @@ export class GeminiProvider implements ILLMProvider {
     this.vertexAI = new VertexAI({
       project: projectId || '',
       location,
+      ...(location === 'global'
+        ? { apiEndpoint: 'aiplatform.googleapis.com' }
+        : {}),
     });
 
     this.logger.log(
@@ -44,7 +47,7 @@ export class GeminiProvider implements ILLMProvider {
     options?: LLMCompletionOptions,
   ): Promise<LLMCompletionResult> {
     const model = this.vertexAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.1-flash-lite-preview',
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
@@ -86,7 +89,7 @@ export class GeminiProvider implements ILLMProvider {
         outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
       },
       provider: this.providerName,
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.1-flash-lite-preview',
     };
   }
 
