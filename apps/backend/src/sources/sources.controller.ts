@@ -50,6 +50,13 @@ export class SourcesController {
     return this.sourcesService.fetchByType(type);
   }
 
+  @Post('articles/ingest')
+  ingestArticles(
+    @Body() body: { sourceType: SourceType; articles: any[] },
+  ) {
+    return this.sourcesService.ingestArticles(body.sourceType, body.articles);
+  }
+
   @Get('articles')
   getArticles(
     @Query('sourceType') sourceType?: SourceType,

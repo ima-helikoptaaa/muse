@@ -10,7 +10,6 @@ import { IdeationModule } from './ideation/ideation.module';
 import { ContentModule } from './content/content.module';
 import { ScheduleConfigModule } from './schedule/schedule.module';
 import { AnalyticsModule } from './analytics/analytics.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -34,7 +33,6 @@ import configuration from './config/configuration';
     ContentModule,
     ScheduleConfigModule,
     AnalyticsModule,
-    NotificationsModule,
   ],
 })
 export class AppModule {}

@@ -22,11 +22,6 @@ export class ScheduleController {
     return this.scheduleService.triggerDigest(dateFrom, dateTo);
   }
 
-  @Post('trigger/brand-reminder')
-  triggerBrandReminder() {
-    return this.scheduleService.triggerBrandReminder();
-  }
-
   @Get('runs')
   getPipelineRuns(
     @Query('type') type?: string,

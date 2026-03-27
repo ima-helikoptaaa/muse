@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { Source } from '@prisma/client';
 import { FetchedArticle } from '@muse/shared';
 import { ISourceFetcher } from '../fetcher.interface';
@@ -9,6 +9,9 @@ import { ISourceFetcher } from '../fetcher.interface';
 export class TwitterFetcher implements ISourceFetcher {
   readonly sourceType = 'TWITTER';
   private readonly logger = new Logger(TwitterFetcher.name);
+
+  private rateLimitRemaining: number | null = null;
+  private rateLimitReset: number | null = null;
 
   constructor(private configService: ConfigService) {}
 
@@ -25,13 +28,15 @@ export class TwitterFetcher implements ISourceFetcher {
 
     const articles: FetchedArticle[] = [];
 
-    // ~6 min between accounts = 60 accounts in ~6 hours, avoids rate limits
-    const delayMs = 6 * 60 * 1000;
-
     for (let i = 0; i < accounts.length; i++) {
       const username = accounts[i];
+
+      // Wait for rate limit window to reset if we're out of quota
+      await this.waitForRateLimit();
+
       try {
-        const tweets = await this.fetchViaSyndication(username);
+        const { tweets, headers } = await this.fetchViaSyndication(username);
+        this.updateRateLimit(headers);
 
         for (const tweet of tweets.slice(0, 10)) {
           if (tweet.text.length < 30) continue;
@@ -55,21 +60,19 @@ export class TwitterFetcher implements ISourceFetcher {
 
         if (tweets.length > 0) {
           this.logger.log(
-            `Fetched ${tweets.length} tweets from @${username} (${i + 1}/${accounts.length})`,
+            `Fetched ${tweets.length} tweets from @${username} (${i + 1}/${accounts.length}, remaining: ${this.rateLimitRemaining})`,
           );
-        }
-
-        // Wait between accounts (skip delay after last one)
-        if (i < accounts.length - 1) {
-          await new Promise((r) => setTimeout(r, delayMs));
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Failed to fetch tweets from @${username}: ${msg}`);
-        // On rate limit, wait double the normal delay
+
         if (msg.includes('429')) {
-          this.logger.warn(`Rate limited, waiting ${(delayMs * 2) / 60000} min...`);
-          await new Promise((r) => setTimeout(r, delayMs * 2));
+          // Force wait for reset on 429
+          if (this.rateLimitReset) {
+            this.rateLimitRemaining = 0;
+            await this.waitForRateLimit();
+          }
         }
       }
     }
@@ -77,8 +80,35 @@ export class TwitterFetcher implements ISourceFetcher {
     return articles;
   }
 
+  private updateRateLimit(headers: Record<string, string>) {
+    const remaining = headers['x-rate-limit-remaining'];
+    const reset = headers['x-rate-limit-reset'];
+
+    if (remaining !== undefined) {
+      this.rateLimitRemaining = parseInt(remaining, 10);
+    }
+    if (reset !== undefined) {
+      this.rateLimitReset = parseInt(reset, 10);
+    }
+  }
+
+  private async waitForRateLimit() {
+    if (this.rateLimitRemaining !== null && this.rateLimitRemaining <= 1 && this.rateLimitReset) {
+      const now = Math.floor(Date.now() / 1000);
+      const waitSec = this.rateLimitReset - now + 10;
+
+      if (waitSec > 0) {
+        this.logger.log(`Rate limit exhausted, waiting ${waitSec}s for reset...`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
+        // Reset tracking after waiting
+        this.rateLimitRemaining = null;
+        this.rateLimitReset = null;
+      }
+    }
+  }
+
   private async fetchViaSyndication(username: string) {
-    const res = await axios.get(
+    const res: AxiosResponse = await axios.get(
       `https://syndication.twitter.com/srv/timeline-profile/screen-name/${username}`,
       {
         timeout: 15000,
@@ -90,6 +120,12 @@ export class TwitterFetcher implements ISourceFetcher {
         },
       },
     );
+
+    const headers: Record<string, string> = {};
+    for (const key of ['x-rate-limit-remaining', 'x-rate-limit-reset', 'x-rate-limit-limit']) {
+      const val = res.headers[key];
+      if (val) headers[key] = String(val);
+    }
 
     const html = res.data as string;
     const tweets: Array<{
@@ -131,6 +167,6 @@ export class TwitterFetcher implements ISourceFetcher {
       }
     }
 
-    return tweets;
+    return { tweets, headers };
   }
 }

@@ -10,7 +10,6 @@ import {
   Kanban,
   Calendar,
   BarChart3,
-  Bell,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -23,7 +22,6 @@ const navItems = [
   { href: '/content', label: 'Content', icon: Kanban },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/reminders', label: 'Reminders', icon: Bell },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

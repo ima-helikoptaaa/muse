@@ -1,13 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getDigests, getPipelineRuns, getReminders, getKanban } from '@/lib/api';
+import { getDigests, getPipelineRuns, getKanban } from '@/lib/api';
 import { formatDate, statusColor } from '@/lib/utils';
 import {
   BookOpen,
   Lightbulb,
   FileText,
-  Bell,
   Activity,
   Clock,
 } from 'lucide-react';
@@ -20,10 +19,6 @@ export default function DashboardPage() {
   const { data: runs } = useQuery({
     queryKey: ['pipeline-runs'],
     queryFn: () => getPipelineRuns(5),
-  });
-  const { data: reminders } = useQuery({
-    queryKey: ['reminders'],
-    queryFn: () => getReminders({ status: 'PENDING' }),
   });
   const { data: kanban } = useQuery({
     queryKey: ['kanban'],
@@ -68,9 +63,9 @@ export default function DashboardPage() {
           }
         />
         <StatCard
-          icon={<Bell size={20} />}
-          label="Pending Reminders"
-          value={reminders?.total || 0}
+          icon={<Activity size={20} />}
+          label="Ready to Post"
+          value={contentCounts?.READY || 0}
         />
       </div>
 

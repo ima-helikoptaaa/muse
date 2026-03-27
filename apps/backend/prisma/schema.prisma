@@ -44,20 +44,6 @@ enum Platform {
   TWITTER
 }
 
-enum ReminderType {
-  POST_CONTENT
-  BRAND_MEME
-  ENGAGEMENT
-  CUSTOM
-}
-
-enum ReminderStatus {
-  PENDING
-  SENT
-  DISMISSED
-  ACTED
-}
-
 // ─── MODELS ──────────────────────────────────────────────
 
 model Source {
@@ -186,22 +172,6 @@ model ContentCalendar {
   contentPiece ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
 
   @@index([scheduledDate])
-}
-
-model Reminder {
-  id          String         @id @default(cuid())
-  type        ReminderType
-  title       String
-  message     String         @db.Text
-  platform    Platform?
-  status      ReminderStatus @default(PENDING)
-  scheduledAt DateTime
-  sentAt      DateTime?
-  metadata    Json?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  @@index([status, scheduledAt])
 }
 
 model PlatformMetric {

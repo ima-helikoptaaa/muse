@@ -6,7 +6,6 @@ import { PipelineProcessor } from './processors/pipeline.processor';
 import { SourcesModule } from '../sources/sources.module';
 import { DigestModule } from '../digest/digest.module';
 import { IdeationModule } from '../ideation/ideation.module';
-import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -14,7 +13,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     SourcesModule,
     DigestModule,
     IdeationModule,
-    NotificationsModule,
   ],
   controllers: [ScheduleController],
   providers: [ScheduleService, PipelineProcessor],

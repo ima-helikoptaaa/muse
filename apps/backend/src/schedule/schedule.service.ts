@@ -11,13 +11,6 @@ export class ScheduleService {
     @InjectQueue('muse-pipeline') private pipelineQueue: Queue,
   ) {}
 
-  // Daily at midnight UTC: Discover new content (Twitter takes ~6h due to rate limits)
-  @Cron('0 0 * * *')
-  async scheduledDiscovery() {
-    this.logger.log('Triggering scheduled discovery...');
-    await this.pipelineQueue.add('discovery', {}, { jobId: `discovery-${Date.now()}` });
-  }
-
   // Daily at 7 AM: Create digest + ideas
   @Cron('0 7 * * *')
   async scheduledDigest() {
@@ -25,20 +18,7 @@ export class ScheduleService {
     await this.pipelineQueue.add('digest', {}, { jobId: `digest-${Date.now()}` });
   }
 
-  // Hourly: Process reminders
-  @Cron('0 * * * *')
-  async scheduledReminders() {
-    await this.pipelineQueue.add('reminder-check', {}, { jobId: `reminder-${Date.now()}` });
-  }
-
-  // 9 AM and 5 PM on weekdays: Brand reminders
-  @Cron('0 9,17 * * 1-5')
-  async scheduledBrandReminders() {
-    this.logger.log('Triggering brand reminder...');
-    await this.pipelineQueue.add('brand-reminder', {}, { jobId: `brand-${Date.now()}` });
-  }
-
-  // Manual trigger methods
+  // Manual triggers — discovery is called from local machine via launchd
   async triggerDiscovery() {
     const job = await this.pipelineQueue.add('discovery', { manual: true });
     return { jobId: job.id, type: 'discovery' };
@@ -51,12 +31,5 @@ export class ScheduleService {
       dateTo,
     });
     return { jobId: job.id, type: 'digest' };
-  }
-
-  async triggerBrandReminder() {
-    const job = await this.pipelineQueue.add('brand-reminder', {
-      manual: true,
-    });
-    return { jobId: job.id, type: 'brand-reminder' };
   }
 }

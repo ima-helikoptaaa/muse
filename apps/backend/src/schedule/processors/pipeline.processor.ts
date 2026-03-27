@@ -5,7 +5,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SourcesService } from '../../sources/sources.service';
 import { DigestService } from '../../digest/digest.service';
 import { IdeationService } from '../../ideation/ideation.service';
-import { NotificationsService } from '../../notifications/notifications.service';
 
 @Processor('muse-pipeline')
 export class PipelineProcessor extends WorkerHost {
@@ -16,7 +15,6 @@ export class PipelineProcessor extends WorkerHost {
     private sourcesService: SourcesService,
     private digestService: DigestService,
     private ideationService: IdeationService,
-    private notificationsService: NotificationsService,
   ) {
     super();
   }
@@ -37,12 +35,6 @@ export class PipelineProcessor extends WorkerHost {
           break;
         case 'digest':
           result = await this.handleDigest(job.data);
-          break;
-        case 'reminder-check':
-          result = await this.handleReminderCheck();
-          break;
-        case 'brand-reminder':
-          result = await this.handleBrandReminder();
           break;
         default:
           throw new Error(`Unknown job type: ${job.name}`);
@@ -98,13 +90,5 @@ export class PipelineProcessor extends WorkerHost {
       items: digest.items.length,
       ideas: ideas.length,
     };
-  }
-
-  private async handleReminderCheck() {
-    return this.notificationsService.processReminders();
-  }
-
-  private async handleBrandReminder() {
-    return this.notificationsService.createBrandReminders();
   }
 }

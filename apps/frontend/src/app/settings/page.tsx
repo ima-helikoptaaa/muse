@@ -41,9 +41,8 @@ export default function SettingsPage() {
           <Clock size={18} /> Schedule Configuration
         </h2>
         <div className="bg-[var(--muted)] rounded-lg p-3 text-sm font-mono space-y-1">
-          <p>DISCOVERY_CRON=0 6 * * *    # Daily at 6 AM</p>
-          <p>DIGEST_CRON=0 7 * * *       # Daily at 7 AM</p>
-          <p>BRAND_REMINDER_CRON=0 9,17 * * 1-5  # 9 AM & 5 PM weekdays</p>
+          <p>DIGEST_CRON=0 7 * * *       # Daily at 7 AM (AWS)</p>
+          <p># Discovery runs locally via launchd at midnight</p>
         </div>
       </div>
 

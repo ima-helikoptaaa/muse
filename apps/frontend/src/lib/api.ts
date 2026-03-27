@@ -54,14 +54,6 @@ export const trackMetric = (data: any) =>
 export const getTopContent = (platform?: string) =>
   api.get('/analytics/top', { params: { platform } }).then((r) => r.data);
 
-// Notifications
-export const getReminders = (params?: Record<string, string>) =>
-  api.get('/notifications/reminders', { params }).then((r) => r.data);
-export const createReminder = (data: any) =>
-  api.post('/notifications/reminders', data).then((r) => r.data);
-export const dismissReminder = (id: string) =>
-  api.patch(`/notifications/reminders/${id}/dismiss`).then((r) => r.data);
-
 // Schedule
 export const triggerDiscovery = () =>
   api.post('/schedule/trigger/discovery').then((r) => r.data);

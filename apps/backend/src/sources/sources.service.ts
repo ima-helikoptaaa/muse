@@ -114,6 +114,31 @@ export class SourcesService {
     }
   }
 
+  async ingestArticles(
+    sourceType: SourceType,
+    articles: FetchedArticle[],
+  ): Promise<{ stored: number }> {
+    const source = await this.prisma.source.findFirst({
+      where: { type: sourceType, enabled: true },
+    });
+    if (!source) {
+      this.logger.warn(`No enabled source found for type: ${sourceType}`);
+      return { stored: 0 };
+    }
+
+    const stored = await this.storeArticles(source.id, articles);
+
+    await this.prisma.source.update({
+      where: { id: source.id },
+      data: { lastFetched: new Date() },
+    });
+
+    this.logger.log(
+      `Ingested ${stored} articles for ${sourceType} from remote discovery`,
+    );
+    return { stored };
+  }
+
   private async storeArticles(
     sourceId: string,
     articles: FetchedArticle[],

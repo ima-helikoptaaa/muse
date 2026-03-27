@@ -29,9 +29,7 @@ export default () => ({
     apiToken: process.env.PRODUCTHUNT_API_TOKEN,
   },
   cron: {
-    discovery: process.env.DISCOVERY_CRON || '0 6 * * *',
     digest: process.env.DIGEST_CRON || '0 7 * * *',
-    brandReminder: process.env.BRAND_REMINDER_CRON || '0 9,17 * * 1-5',
   },
   frontend: {
     url: process.env.FRONTEND_URL || 'http://localhost:3001',
