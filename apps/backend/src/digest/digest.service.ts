@@ -95,7 +95,11 @@ export class DigestService {
     }
 
     // Take top 50 for ranking (LLM context limit)
-    const forRanking = filtered.slice(0, 50).map((a) => ({
+    // Use numeric indices instead of CUIDs to avoid LLM hallucination of IDs
+    const rankingSlice = filtered.slice(0, 50);
+    const indexToId = new Map(rankingSlice.map((a, i) => [i + 1, a.id]));
+
+    const forRanking = rankingSlice.map((a) => ({
       id: a.id,
       title: a.title,
       summary: a.summary || undefined,
@@ -110,11 +114,24 @@ export class DigestService {
       personalContext || undefined,
     );
 
-    this.logger.log(`Step 6: Ranked ${ranked.length} articles`);
+    // Map numeric indices back to real article IDs
+    const mappedRanked = ranked
+      .filter((item) => indexToId.has(item.index))
+      .map((item) => ({
+        ...item,
+        rawArticleId: indexToId.get(item.index)!,
+      }));
+
+    const droppedCount = ranked.length - mappedRanked.length;
+    if (droppedCount > 0) {
+      this.logger.warn(`Dropped ${droppedCount} ranked items with invalid indices`);
+    }
+
+    this.logger.log(`Step 6: Ranked ${mappedRanked.length} articles`);
 
     // Take top 20
-    ranked.sort((a, b) => b.relevanceScore - a.relevanceScore);
-    const topItems = ranked.slice(0, 20);
+    mappedRanked.sort((a, b) => b.relevanceScore - a.relevanceScore);
+    const topItems = mappedRanked.slice(0, 20);
 
     if (topItems.length === 0) {
       this.logger.warn('No relevant articles found after ranking');

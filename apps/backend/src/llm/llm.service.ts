@@ -16,7 +16,8 @@ import {
 } from './prompts/summarize.prompt';
 
 export interface RankedArticle {
-  rawArticleId: string;
+  index: number;
+  rawArticleId?: string;
   rank: number;
   relevanceScore: number;
   aiSummary: string;

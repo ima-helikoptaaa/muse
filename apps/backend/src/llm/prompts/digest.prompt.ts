@@ -86,12 +86,12 @@ export function buildRankUserPrompt(
         entry += `\n   Summary: ${a.summary}`;
       }
       if (a.url) entry += `\n   URL: ${a.url}`;
-      entry += `\n   ID: ${a.id}`;
       return entry;
     })
     .join('\n\n');
 
-  let prompt = `Comparatively rank these ${articles.length} pre-filtered articles. Return a JSON array with objects: { "rawArticleId": string, "rank": number, "relevanceScore": number, "aiSummary": string, "topicTags": string[], "whyItMatters": string }
+  let prompt = `Comparatively rank these ${articles.length} pre-filtered articles. Return a JSON array with objects: { "index": number, "rank": number, "relevanceScore": number, "aiSummary": string, "topicTags": string[], "whyItMatters": string }
+where "index" is the article number (1-based) from the list above.
 
 Articles:
 ${articleList}`;
