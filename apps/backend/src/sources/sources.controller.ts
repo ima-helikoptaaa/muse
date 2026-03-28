@@ -56,16 +56,22 @@ export class SourcesController {
   @Get('articles')
   getArticles(
     @Query('sourceType') sourceType?: SourceType,
+    @Query('sourceId') sourceId?: string,
     @Query('since') since?: string,
+    @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('minScore') minScore?: string,
   ) {
     if (since && isNaN(Date.parse(since))) {
       throw new BadRequestException('Invalid date format for "since"');
     }
     return this.sourcesService.getArticles({
       sourceType,
+      sourceId,
       since: since ? new Date(since) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
+      minScore: minScore ? parseFloat(minScore) : undefined,
     });
   }
 }

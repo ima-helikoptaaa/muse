@@ -204,21 +204,38 @@ export class SourcesService {
 
   async getArticles(options?: {
     sourceType?: SourceType;
+    sourceId?: string;
     since?: Date;
+    page?: number;
     limit?: number;
+    minScore?: number;
   }) {
-    return this.prisma.rawArticle.findMany({
-      where: {
-        ...(options?.sourceType && {
-          source: { type: options.sourceType },
-        }),
-        ...(options?.since && {
-          fetchedAt: { gte: options.since },
-        }),
-      },
-      include: { source: true },
-      orderBy: { fetchedAt: 'desc' },
-      take: options?.limit || 100,
-    });
+    const page = options?.page || 1;
+    const limit = options?.limit || 30;
+
+    const where = {
+      ...(options?.sourceId
+        ? { sourceId: options.sourceId }
+        : options?.sourceType && { source: { type: options.sourceType } }),
+      ...(options?.since && {
+        fetchedAt: { gte: options.since },
+      }),
+      ...(options?.minScore != null && {
+        score: { gte: options.minScore },
+      }),
+    };
+
+    const [articles, total] = await Promise.all([
+      this.prisma.rawArticle.findMany({
+        where,
+        include: { source: true },
+        orderBy: { fetchedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.rawArticle.count({ where }),
+    ]);
+
+    return { articles, total, page, totalPages: Math.ceil(total / limit) };
   }
 }

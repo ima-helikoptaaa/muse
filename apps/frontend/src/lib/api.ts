@@ -147,7 +147,7 @@ export const getSources = (): Promise<Source[]> =>
   api.get('/sources').then((r) => r.data);
 export const fetchAllSources = () =>
   api.post('/sources/fetch').then((r) => r.data);
-export const getArticles = (params?: Record<string, string>): Promise<RawArticle[]> =>
+export const getArticles = (params?: Record<string, string>): Promise<{ articles: RawArticle[]; total: number; page: number; totalPages: number }> =>
   api.get('/sources/articles', { params }).then((r) => r.data);
 
 // Digests

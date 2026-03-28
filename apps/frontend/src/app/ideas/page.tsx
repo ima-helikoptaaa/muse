@@ -14,6 +14,8 @@ import {
   Linkedin,
   Twitter,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const formatIcons: Record<string, typeof FileText> = {
@@ -27,15 +29,20 @@ export default function IdeasPage() {
   const queryClient = useQueryClient();
   const [format, setFormat] = useState('');
   const [platform, setPlatform] = useState('');
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['ideas', format, platform],
+    queryKey: ['ideas', format, platform, page],
     queryFn: () =>
       getIdeas({
         ...(format && { format }),
         ...(platform && { platform }),
+        page: String(page),
       }),
   });
+
+  const ideas = data?.ideas;
+  const totalPages = data?.totalPages || 1;
 
   const promoteMutation = useMutation({
     mutationFn: promoteIdea,
@@ -43,6 +50,11 @@ export default function IdeasPage() {
       queryClient.invalidateQueries({ queryKey: ['ideas'] });
     },
   });
+
+  const handleFilterChange = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setter(e.target.value);
+    setPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -64,7 +76,7 @@ export default function IdeasPage() {
       <div className="flex gap-2">
         <select
           value={format}
-          onChange={(e) => setFormat(e.target.value)}
+          onChange={handleFilterChange(setFormat)}
           className="bg-[var(--muted)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All Formats</option>
@@ -75,7 +87,7 @@ export default function IdeasPage() {
         </select>
         <select
           value={platform}
-          onChange={(e) => setPlatform(e.target.value)}
+          onChange={handleFilterChange(setPlatform)}
           className="bg-[var(--muted)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All Platforms</option>
@@ -94,61 +106,88 @@ export default function IdeasPage() {
           Failed to load ideas.
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {data?.ideas?.map((idea: ContentIdea) => {
-            const Icon = formatIcons[idea.format] || FileText;
-            return (
-              <div
-                key={idea.id}
-                className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon size={16} className="text-[var(--primary)]" />
-                  <span className="text-xs px-2 py-0.5 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">
-                    {idea.format.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-xs text-[var(--muted-foreground)]">
-                    {idea.estimatedEffort}
-                  </span>
-                  <span className="ml-auto text-xs font-bold text-[var(--primary)]">
-                    P{idea.priority}
-                  </span>
-                </div>
-                <h3 className="font-semibold">{idea.title}</h3>
-                <p className="text-sm text-[var(--muted-foreground)] mt-1 line-clamp-2">
-                  {idea.description}
-                </p>
-                <div className="flex items-center justify-between mt-4">
-                  <Link
-                    href={`/ideas/${idea.id}`}
-                    className="text-sm text-[var(--primary)] hover:underline"
-                  >
-                    View Details
-                  </Link>
-                  {!idea.contentPiece && (
-                    <button
-                      onClick={() => promoteMutation.mutate(idea.id)}
-                      disabled={promoteMutation.isPending}
-                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
-                    >
-                      Promote <ArrowRight size={14} />
-                    </button>
-                  )}
-                  {idea.contentPiece && (
-                    <span className="text-xs text-green-400">
-                      Promoted
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {ideas?.map((idea: ContentIdea) => {
+              const Icon = formatIcons[idea.format] || FileText;
+              return (
+                <div
+                  key={idea.id}
+                  className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon size={16} className="text-[var(--primary)]" />
+                    <span className="text-xs px-2 py-0.5 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">
+                      {idea.format.replace(/_/g, ' ')}
                     </span>
-                  )}
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {idea.estimatedEffort}
+                    </span>
+                    <span className="ml-auto text-xs font-bold text-[var(--primary)]">
+                      P{idea.priority}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold">{idea.title}</h3>
+                  <p className="text-sm text-[var(--muted-foreground)] mt-1 line-clamp-2">
+                    {idea.description}
+                  </p>
+                  <div className="flex items-center justify-between mt-4">
+                    <Link
+                      href={`/ideas/${idea.id}`}
+                      className="text-sm text-[var(--primary)] hover:underline"
+                    >
+                      View Details
+                    </Link>
+                    {!idea.contentPiece && (
+                      <button
+                        onClick={() => promoteMutation.mutate(idea.id)}
+                        disabled={promoteMutation.isPending}
+                        className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+                      >
+                        Promote <ArrowRight size={14} />
+                      </button>
+                    )}
+                    {idea.contentPiece && (
+                      <span className="text-xs text-green-400">
+                        Promoted
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-          {data?.ideas?.length === 0 && (
-            <p className="text-center text-[var(--muted-foreground)] py-8 col-span-2">
-              No ideas yet. Generate ideas from a digest.
-            </p>
+              );
+            })}
+            {ideas?.length === 0 && (
+              <p className="text-center text-[var(--muted-foreground)] py-8 col-span-2">
+                No ideas yet. Generate ideas from a digest.
+              </p>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-2 rounded-lg border border-[var(--border)] disabled:opacity-30 hover:bg-[var(--muted)]"
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm text-[var(--muted-foreground)]">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-2 rounded-lg border border-[var(--border)] disabled:opacity-30 hover:bg-[var(--muted)]"
+                aria-label="Next page"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

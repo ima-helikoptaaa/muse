@@ -1,18 +1,24 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDigests, generateDigest } from '@/lib/api';
 import type { DigestSummary } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
-import { BookOpen, Sparkles, AlertCircle } from 'lucide-react';
+import { BookOpen, Sparkles, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DigestsPage() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['digests'],
-    queryFn: () => getDigests(1),
+    queryKey: ['digests', page],
+    queryFn: () => getDigests(page),
   });
+
+  const digests = data?.digests;
+  const totalPages = data?.totalPages || 1;
 
   const generateMutation = useMutation({
     mutationFn: () => generateDigest(),
@@ -55,37 +61,64 @@ export default function DigestsPage() {
           Failed to load digests.
         </div>
       ) : (
-        <div className="grid gap-4">
-          {data?.digests?.map((digest: DigestSummary) => (
-            <Link
-              key={digest.id}
-              href={`/digests/${digest.id}`}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 hover:border-[var(--primary)] transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">{digest.title}</h3>
-                  {digest.summary && (
-                    <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                      {digest.summary}
-                    </p>
-                  )}
+        <>
+          <div className="grid gap-4">
+            {digests?.map((digest: DigestSummary) => (
+              <Link
+                key={digest.id}
+                href={`/digests/${digest.id}`}
+                className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 hover:border-[var(--primary)] transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg">{digest.title}</h3>
+                    {digest.summary && (
+                      <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                        {digest.summary}
+                      </p>
+                    )}
+                  </div>
+                  <BookOpen size={20} className="text-[var(--primary)]" />
                 </div>
-                <BookOpen size={20} className="text-[var(--primary)]" />
-              </div>
-              <div className="flex gap-4 mt-3 text-xs text-[var(--muted-foreground)]">
-                <span>{digest._count?.items || 0} items</span>
-                <span>{digest._count?.contentIdeas || 0} ideas</span>
-                <span>{formatDate(digest.createdAt)}</span>
-              </div>
-            </Link>
-          ))}
-          {data?.digests?.length === 0 && (
-            <p className="text-center text-[var(--muted-foreground)] py-8">
-              No digests yet. Fetch articles first, then generate a digest.
-            </p>
+                <div className="flex gap-4 mt-3 text-xs text-[var(--muted-foreground)]">
+                  <span>{digest._count?.items || 0} items</span>
+                  <span>{digest._count?.contentIdeas || 0} ideas</span>
+                  <span>{formatDate(digest.createdAt)}</span>
+                </div>
+              </Link>
+            ))}
+            {digests?.length === 0 && (
+              <p className="text-center text-[var(--muted-foreground)] py-8">
+                No digests yet. Fetch articles first, then generate a digest.
+              </p>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-2 rounded-lg border border-[var(--border)] disabled:opacity-30 hover:bg-[var(--muted)]"
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm text-[var(--muted-foreground)]">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-2 rounded-lg border border-[var(--border)] disabled:opacity-30 hover:bg-[var(--muted)]"
+                aria-label="Next page"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
