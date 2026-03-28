@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LlmService } from '../llm/llm.service';
-import { ContentFormat, Platform } from '@prisma/client';
+import { ContentFormat, Platform, Prisma } from '@prisma/client';
 
 @Injectable()
 export class IdeationService {
@@ -17,7 +17,7 @@ export class IdeationService {
       where: { id: digestId },
       include: {
         items: {
-          include: { rawArticle: true },
+          include: { rawArticle: { include: { source: true } } },
           orderBy: { rank: 'asc' },
         },
       },
@@ -25,18 +25,35 @@ export class IdeationService {
 
     if (!digest) throw new NotFoundException(`Digest not found: ${digestId}`);
 
-    const digestItems = digest.items.map((item) => ({
+    // Top 20 as primary source material for idea generation
+    const primaryItems = digest.items.slice(0, 20).map((item) => ({
       title: item.rawArticle.title,
       aiSummary: item.aiSummary,
       topicTags: item.topicTags,
       whyItMatters: item.whyItMatters || '',
+      rank: item.rank,
+      articleSource: item.rawArticle.source.name,
+      articleUrl: item.rawArticle.url || undefined,
+    }));
+
+    // Items 21-50 as additional context
+    const contextItems = digest.items.slice(20).map((item) => ({
+      title: item.rawArticle.title,
+      aiSummary: item.aiSummary,
+      topicTags: item.topicTags,
+      rank: item.rank,
+      articleSource: item.rawArticle.source.name,
+      articleUrl: item.rawArticle.url || undefined,
     }));
 
     this.logger.log(
-      `Generating content ideas from ${digestItems.length} digest items...`,
+      `Generating content ideas from ${primaryItems.length} primary + ${contextItems.length} context articles...`,
     );
 
-    const ideas = await this.llmService.generateContentIdeas(digestItems);
+    const ideas = await this.llmService.generateContentIdeas(
+      primaryItems,
+      contextItems.length > 0 ? contextItems : undefined,
+    );
 
     const created = await Promise.all(
       ideas.map((idea) =>
@@ -45,12 +62,15 @@ export class IdeationService {
             digestId,
             title: idea.title,
             description: idea.description,
-            format: idea.format as ContentFormat,
-            targetPlatform: idea.targetPlatform as Platform,
+            angle: idea.angle || null,
+            format: (idea.format as ContentFormat) || 'BLOG_POST',
+            targetPlatform: (idea.targetPlatform as Platform) || 'BLOG',
             researchSteps: idea.researchSteps,
             talkingPoints: idea.talkingPoints,
             estimatedEffort: idea.estimatedEffort,
             priority: idea.priority,
+            cascade: idea.cascade ? (idea.cascade as Prisma.InputJsonValue) : Prisma.JsonNull,
+            sourceArticles: idea.sourceArticles ? (idea.sourceArticles as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
           },
         }),
       ),

@@ -13,9 +13,11 @@ import {
   Youtube,
   Linkedin,
   Twitter,
+  Image,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 
 const formatIcons: Record<string, typeof FileText> = {
@@ -116,10 +118,20 @@ export default function IdeasPage() {
                   className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Icon size={16} className="text-[var(--primary)]" />
-                    <span className="text-xs px-2 py-0.5 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">
-                      {idea.format.replace(/_/g, ' ')}
-                    </span>
+                    {idea.cascade ? (
+                      <Layers size={16} className="text-[var(--primary)]" />
+                    ) : (
+                      <Icon size={16} className="text-[var(--primary)]" />
+                    )}
+                    {idea.cascade ? (
+                      <span className="text-xs px-2 py-0.5 rounded bg-[var(--primary)]/20 text-[var(--primary)]">
+                        Content Cascade
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">
+                        {idea.format.replace(/_/g, ' ')}
+                      </span>
+                    )}
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {idea.estimatedEffort}
                     </span>

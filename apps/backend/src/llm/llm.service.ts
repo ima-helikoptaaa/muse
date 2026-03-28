@@ -28,12 +28,17 @@ export interface RankedArticle {
 export interface GeneratedContentIdea {
   title: string;
   description: string;
-  format: string;
-  targetPlatform: string;
+  angle?: string;
+  // Legacy single-format fields
+  format?: string;
+  targetPlatform?: string;
   researchSteps: string[];
   talkingPoints: string[];
   estimatedEffort: string;
   priority: number;
+  // New cascade fields
+  cascade?: Record<string, unknown>;
+  sourceArticles?: { title: string; source: string; url: string; relevance: string }[];
 }
 
 @Injectable()
@@ -118,18 +123,32 @@ export class LlmService {
   }
 
   async generateContentIdeas(
-    digestItems: {
+    primaryItems: {
       title: string;
       aiSummary: string;
       topicTags: string[];
       whyItMatters: string;
+      rank: number;
+      articleSource?: string;
+      articleUrl?: string;
+    }[],
+    contextItems?: {
+      title: string;
+      aiSummary: string;
+      topicTags: string[];
+      rank: number;
+      articleSource?: string;
+      articleUrl?: string;
     }[],
   ): Promise<GeneratedContentIdea[]> {
-    if (digestItems.length === 0) return [];
+    if (primaryItems.length === 0) return [];
 
-    return this.provider.completeJSON<GeneratedContentIdea[]>([
-      { role: 'system', content: IDEATION_SYSTEM_PROMPT },
-      { role: 'user', content: buildIdeationUserPrompt(digestItems) },
-    ]);
+    return this.provider.completeJSON<GeneratedContentIdea[]>(
+      [
+        { role: 'system', content: IDEATION_SYSTEM_PROMPT },
+        { role: 'user', content: buildIdeationUserPrompt(primaryItems, contextItems) },
+      ],
+      { model: 'gemini-3.1-pro-preview', maxTokens: 65536 },
+    );
   }
 }

@@ -168,9 +168,9 @@ export class DigestService {
 
     this.logger.log(`Step 6: Ranked ${mappedRanked.length} articles`);
 
-    // Take top 20
+    // Take top 50 for the digest (ideas generation will use top 20 as primary)
     mappedRanked.sort((a, b) => b.relevanceScore - a.relevanceScore);
-    const topItems = mappedRanked.slice(0, 20);
+    const topItems = mappedRanked.slice(0, 50);
 
     if (topItems.length === 0) {
       this.logger.warn('No relevant articles found after ranking');

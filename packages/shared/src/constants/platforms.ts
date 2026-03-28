@@ -3,6 +3,7 @@ export enum Platform {
   YOUTUBE = 'YOUTUBE',
   LINKEDIN = 'LINKEDIN',
   TWITTER = 'TWITTER',
+  INSTAGRAM = 'INSTAGRAM',
 }
 
 export enum ReminderType {

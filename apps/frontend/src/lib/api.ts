@@ -66,16 +66,43 @@ export interface DigestItem {
   rawArticle: RawArticle;
 }
 
+export interface SourceAttribution {
+  title: string;
+  source: string;
+  url: string;
+  relevance: string;
+}
+
+export interface ContentCascade {
+  article?: { headline: string; body: string };
+  youtubeScript?: {
+    hook: string;
+    sections: { title: string; talkingPoints: string[]; visualNotes: string }[];
+    cta: string;
+    estimatedLength: string;
+  };
+  linkedinPost?: { body: string };
+  twitterThread?: { tweets: string[] };
+  instagramCarousel?: {
+    slides: { text: string; visualDescription: string }[];
+    caption: string;
+    styleNotes: string;
+  };
+}
+
 export interface ContentIdea {
   id: string;
   title: string;
   description: string;
+  angle?: string | null;
   format: string;
   targetPlatform: string;
   researchSteps: string[];
   talkingPoints: string[];
   estimatedEffort: string;
   priority: number;
+  cascade?: ContentCascade | null;
+  sourceArticles?: SourceAttribution[] | null;
   contentPiece?: ContentPiece | null;
 }
 
