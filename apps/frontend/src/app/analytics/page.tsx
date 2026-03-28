@@ -2,19 +2,20 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getDashboardStats, getTopContent } from '@/lib/api';
+import type { PlatformMetric } from '@/lib/api';
 import { format, subDays } from 'date-fns';
-import { BarChart3, TrendingUp, Eye, Heart, MessageCircle, Share2 } from 'lucide-react';
+import { BarChart3, TrendingUp, Eye, Heart, MessageCircle, Share2, AlertCircle } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const from = format(subDays(new Date(), 30), 'yyyy-MM-dd');
   const to = format(new Date(), 'yyyy-MM-dd');
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery({
     queryKey: ['dashboard-stats', from, to],
     queryFn: () => getDashboardStats(from, to),
   });
 
-  const { data: topContent } = useQuery({
+  const { data: topContent, isLoading: topLoading, isError: topError } = useQuery({
     queryKey: ['top-content'],
     queryFn: () => getTopContent(),
   });
@@ -22,6 +23,13 @@ export default function AnalyticsPage() {
   const platforms = stats?.byPlatform
     ? Object.entries(stats.byPlatform)
     : [];
+
+  const isLoading = statsLoading || topLoading;
+  const isError = statsError || topError;
+
+  if (isLoading) {
+    return <p className="text-[var(--muted-foreground)]">Loading analytics...</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -33,6 +41,13 @@ export default function AnalyticsPage() {
           Last 30 days performance
         </p>
       </div>
+
+      {isError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to load some analytics data.
+        </div>
+      )}
 
       {/* Platform Stats */}
       {platforms.length > 0 ? (
@@ -78,13 +93,13 @@ export default function AnalyticsPage() {
       )}
 
       {/* Top Content */}
-      {topContent?.length > 0 && (
+      {topContent && topContent.length > 0 && (
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
           <h2 className="font-semibold mb-3 flex items-center gap-2">
             <TrendingUp size={18} /> Top Performing Content
           </h2>
           <div className="space-y-2">
-            {topContent.map((metric: any) => (
+            {topContent.map((metric: PlatformMetric) => (
               <div
                 key={metric.id}
                 className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"

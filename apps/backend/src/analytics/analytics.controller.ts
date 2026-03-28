@@ -1,27 +1,14 @@
-import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, BadRequestException } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { Platform } from '@prisma/client';
+import { TrackMetricDto } from './dto/track-metric.dto';
 
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Post('track')
-  trackMetric(
-    @Body()
-    body: {
-      contentPieceId?: string;
-      platform: Platform;
-      metricDate: string;
-      impressions?: number;
-      clicks?: number;
-      likes?: number;
-      comments?: number;
-      shares?: number;
-      followers?: number;
-      engagementRate?: number;
-    },
-  ) {
+  trackMetric(@Body() body: TrackMetricDto) {
     return this.analyticsService.trackMetric({
       ...body,
       metricDate: new Date(body.metricDate),
@@ -33,6 +20,9 @@ export class AnalyticsController {
     @Query('from') from: string,
     @Query('to') to: string,
   ) {
+    if (!from || !to || isNaN(Date.parse(from)) || isNaN(Date.parse(to))) {
+      throw new BadRequestException('Valid "from" and "to" date params required');
+    }
     return this.analyticsService.getDashboardStats(
       new Date(from),
       new Date(to),

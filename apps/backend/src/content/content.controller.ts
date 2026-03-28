@@ -6,9 +6,15 @@ import {
   Param,
   Body,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { ContentService } from './content.service';
 import { ContentStatus, ContentFormat, Platform } from '@prisma/client';
+import {
+  CreateContentDto,
+  UpdateContentDto,
+  ScheduleContentDto,
+} from './dto/create-content.dto';
 
 @Controller('content')
 export class ContentController {
@@ -38,6 +44,9 @@ export class ContentController {
 
   @Get('calendar')
   getCalendar(@Query('from') from: string, @Query('to') to: string) {
+    if (!from || !to || isNaN(Date.parse(from)) || isNaN(Date.parse(to))) {
+      throw new BadRequestException('Valid "from" and "to" date params required');
+    }
     return this.contentService.getCalendar(new Date(from), new Date(to));
   }
 
@@ -47,16 +56,7 @@ export class ContentController {
   }
 
   @Post()
-  createContent(
-    @Body()
-    body: {
-      title: string;
-      format: ContentFormat;
-      targetPlatform: Platform;
-      body?: string;
-      notes?: string;
-    },
-  ) {
+  createContent(@Body() body: CreateContentDto) {
     return this.contentService.createContent(body);
   }
 
@@ -66,10 +66,7 @@ export class ContentController {
   }
 
   @Patch(':id')
-  updateContent(
-    @Param('id') id: string,
-    @Body() body: { title?: string; body?: string; notes?: string },
-  ) {
+  updateContent(@Param('id') id: string, @Body() body: UpdateContentDto) {
     return this.contentService.updateContent(id, body);
   }
 
@@ -82,10 +79,10 @@ export class ContentController {
   }
 
   @Patch(':id/schedule')
-  scheduleContent(
-    @Param('id') id: string,
-    @Body() body: { scheduledDate: string; scheduledTime?: string },
-  ) {
+  scheduleContent(@Param('id') id: string, @Body() body: ScheduleContentDto) {
+    if (isNaN(Date.parse(body.scheduledDate))) {
+      throw new BadRequestException('Invalid scheduledDate');
+    }
     return this.contentService.scheduleContent(
       id,
       new Date(body.scheduledDate),

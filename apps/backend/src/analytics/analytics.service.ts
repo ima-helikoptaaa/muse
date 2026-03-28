@@ -7,7 +7,7 @@ export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
 
   async trackMetric(data: {
-    contentPieceId?: string;
+    contentPieceId: string;
     platform: Platform;
     metricDate: Date;
     impressions?: number;
@@ -22,7 +22,7 @@ export class AnalyticsService {
     return this.prisma.platformMetric.upsert({
       where: {
         contentPieceId_platform_metricDate: {
-          contentPieceId: data.contentPieceId || '',
+          contentPieceId: data.contentPieceId,
           platform: data.platform,
           metricDate: data.metricDate,
         },

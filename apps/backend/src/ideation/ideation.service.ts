@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LlmService } from '../llm/llm.service';
 import { ContentFormat, Platform } from '@prisma/client';
@@ -23,7 +23,7 @@ export class IdeationService {
       },
     });
 
-    if (!digest) throw new Error(`Digest not found: ${digestId}`);
+    if (!digest) throw new NotFoundException(`Digest not found: ${digestId}`);
 
     const digestItems = digest.items.map((item) => ({
       title: item.rawArticle.title,

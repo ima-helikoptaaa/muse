@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Query, Body } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TriggerDigestDto } from './dto/trigger-digest.dto';
 
 @Controller('schedule')
 export class ScheduleController {
@@ -15,11 +16,8 @@ export class ScheduleController {
   }
 
   @Post('trigger/digest')
-  triggerDigest(
-    @Body('dateFrom') dateFrom?: string,
-    @Body('dateTo') dateTo?: string,
-  ) {
-    return this.scheduleService.triggerDigest(dateFrom, dateTo);
+  triggerDigest(@Body() body: TriggerDigestDto) {
+    return this.scheduleService.triggerDigest(body.dateFrom, body.dateTo);
   }
 
   @Get('runs')

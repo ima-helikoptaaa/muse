@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
 import { IdeationService } from './ideation.service';
 import { ContentFormat, Platform } from '@prisma/client';
+import { GenerateIdeasDto } from './dto/generate-ideas.dto';
 
 @Controller('ideas')
 export class IdeationController {
@@ -29,7 +30,7 @@ export class IdeationController {
   }
 
   @Post('generate')
-  generateIdeas(@Body('digestId') digestId: string) {
-    return this.ideationService.generateIdeas(digestId);
+  generateIdeas(@Body() body: GenerateIdeasDto) {
+    return this.ideationService.generateIdeas(body.digestId);
   }
 }

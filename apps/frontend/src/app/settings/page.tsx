@@ -1,12 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getSources, getPipelineRuns } from '@/lib/api';
+import { getSources } from '@/lib/api';
+import type { Source } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { Settings, Database, Bot, Clock, Rss } from 'lucide-react';
+import { Settings, Database, Bot, Clock, Rss, AlertCircle } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { data: sources } = useQuery({
+  const { data: sources, isLoading, isError } = useQuery({
     queryKey: ['sources'],
     queryFn: getSources,
   });
@@ -51,31 +52,40 @@ export default function SettingsPage() {
         <h2 className="font-semibold flex items-center gap-2 mb-3">
           <Rss size={18} /> Content Sources
         </h2>
-        <div className="space-y-2">
-          {sources?.map((source: any) => (
-            <div
-              key={source.id}
-              className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
-            >
-              <div>
-                <span className="text-sm font-medium">{source.name}</span>
-                <span className="ml-2 text-xs text-[var(--muted-foreground)]">
-                  {source.type.replace(/_/g, ' ')}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                {source.lastFetched && (
-                  <span className="text-xs text-[var(--muted-foreground)]">
-                    Last: {formatDate(source.lastFetched)}
+        {isLoading ? (
+          <p className="text-[var(--muted-foreground)] text-sm">Loading sources...</p>
+        ) : isError ? (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+            <AlertCircle size={16} />
+            Failed to load sources.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sources?.map((source: Source) => (
+              <div
+                key={source.id}
+                className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
+              >
+                <div>
+                  <span className="text-sm font-medium">{source.name}</span>
+                  <span className="ml-2 text-xs text-[var(--muted-foreground)]">
+                    {source.type.replace(/_/g, ' ')}
                   </span>
-                )}
-                <span
-                  className={`w-2 h-2 rounded-full ${source.enabled ? 'bg-green-500' : 'bg-red-500'}`}
-                />
+                </div>
+                <div className="flex items-center gap-3">
+                  {source.lastFetched && (
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      Last: {formatDate(source.lastFetched)}
+                    </span>
+                  )}
+                  <span
+                    className={`w-2 h-2 rounded-full ${source.enabled ? 'bg-green-500' : 'bg-red-500'}`}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* API Keys Info */}

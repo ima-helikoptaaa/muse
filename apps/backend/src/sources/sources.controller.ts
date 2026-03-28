@@ -7,10 +7,12 @@ import {
   Query,
   Patch,
   ParseEnumPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { SourcesService } from './sources.service';
 import { SourceType } from '@prisma/client';
 import { IngestArticlesDto } from './dto/ingest-articles.dto';
+import { CreateSourceDto } from './dto/create-source.dto';
 
 @Controller('sources')
 export class SourcesController {
@@ -22,15 +24,7 @@ export class SourcesController {
   }
 
   @Post()
-  createSource(
-    @Body()
-    body: {
-      name: string;
-      type: SourceType;
-      url: string;
-      fetchConfig?: any;
-    },
-  ) {
+  createSource(@Body() body: CreateSourceDto) {
     return this.sourcesService.createSource(body);
   }
 
@@ -65,6 +59,9 @@ export class SourcesController {
     @Query('since') since?: string,
     @Query('limit') limit?: string,
   ) {
+    if (since && isNaN(Date.parse(since))) {
+      throw new BadRequestException('Invalid date format for "since"');
+    }
     return this.sourcesService.getArticles({
       sourceType,
       since: since ? new Date(since) : undefined,

@@ -30,7 +30,7 @@ export class TechBlogsFetcher implements ISourceFetcher {
 
         for (const item of feed.items?.slice(0, 10) || []) {
           articles.push({
-            externalId: item.guid || item.link || '',
+            externalId: item.guid || item.link || `${blog.name}-${item.title}`,
             title: item.title || '',
             url: item.link,
             authors: item.creator

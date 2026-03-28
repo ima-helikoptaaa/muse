@@ -16,7 +16,8 @@ async function bootstrap() {
   app.enableCors({
     origin: (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3001')
       .split(',')
-      .map((o) => o.trim()),
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0),
   });
 
   app.setGlobalPrefix('api');

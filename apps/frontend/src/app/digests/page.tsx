@@ -2,13 +2,14 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDigests, generateDigest } from '@/lib/api';
+import type { DigestSummary } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
-import { BookOpen, Plus, Sparkles } from 'lucide-react';
+import { BookOpen, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function DigestsPage() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['digests'],
     queryFn: () => getDigests(1),
   });
@@ -39,11 +40,23 @@ export default function DigestsPage() {
         </button>
       </div>
 
+      {generateMutation.isError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to generate digest. Please try again.
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-[var(--muted-foreground)]">Loading digests...</p>
+      ) : isError ? (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to load digests.
+        </div>
       ) : (
         <div className="grid gap-4">
-          {data?.digests?.map((digest: any) => (
+          {data?.digests?.map((digest: DigestSummary) => (
             <Link
               key={digest.id}
               href={`/digests/${digest.id}`}

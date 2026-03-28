@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
 import { DigestService } from './digest.service';
+import { GenerateDigestDto } from './dto/generate-digest.dto';
 
 @Controller('digests')
 export class DigestController {
@@ -22,13 +23,10 @@ export class DigestController {
   }
 
   @Post('generate')
-  generateDigest(
-    @Body('dateFrom') dateFrom?: string,
-    @Body('dateTo') dateTo?: string,
-  ) {
+  generateDigest(@Body() body: GenerateDigestDto) {
     return this.digestService.createDigest(
-      dateFrom ? new Date(dateFrom) : undefined,
-      dateTo ? new Date(dateTo) : undefined,
+      body.dateFrom ? new Date(body.dateFrom) : undefined,
+      body.dateTo ? new Date(body.dateTo) : undefined,
     );
   }
 }

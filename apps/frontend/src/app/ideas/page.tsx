@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getIdeas, promoteIdea } from '@/lib/api';
+import type { ContentIdea } from '@/lib/api';
 import { formatDate, statusColor } from '@/lib/utils';
 import Link from 'next/link';
 import {
@@ -12,9 +13,10 @@ import {
   Youtube,
   Linkedin,
   Twitter,
+  AlertCircle,
 } from 'lucide-react';
 
-const formatIcons: Record<string, any> = {
+const formatIcons: Record<string, typeof FileText> = {
   BLOG_POST: FileText,
   YOUTUBE_VIDEO: Youtube,
   LINKEDIN_POST: Linkedin,
@@ -26,7 +28,7 @@ export default function IdeasPage() {
   const [format, setFormat] = useState('');
   const [platform, setPlatform] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['ideas', format, platform],
     queryFn: () =>
       getIdeas({
@@ -50,6 +52,13 @@ export default function IdeasPage() {
           AI-generated content ideas from your digests
         </p>
       </div>
+
+      {promoteMutation.isError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to promote idea. Please try again.
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2">
@@ -79,9 +88,14 @@ export default function IdeasPage() {
 
       {isLoading ? (
         <p className="text-[var(--muted-foreground)]">Loading ideas...</p>
+      ) : isError ? (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to load ideas.
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {data?.ideas?.map((idea: any) => {
+          {data?.ideas?.map((idea: ContentIdea) => {
             const Icon = formatIcons[idea.format] || FileText;
             return (
               <div

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getContent, updateContent, updateContentStatus, scheduleContent } from '@/lib/api';
 import { formatDate, statusColor } from '@/lib/utils';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 
 const NEXT_STATUSES: Record<string, string[]> = {
   IDEA: ['RESEARCHING'],
@@ -20,20 +20,20 @@ export default function ContentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 
-  const { data: piece, isLoading } = useQuery({
+  const { data: piece, isLoading, isError } = useQuery({
     queryKey: ['content', id],
     queryFn: () => getContent(id),
   });
 
   const [body, setBody] = useState('');
   const [notes, setNotes] = useState('');
-  const [initialized, setInitialized] = useState(false);
 
-  if (piece && !initialized) {
-    setBody(piece.body || '');
-    setNotes(piece.notes || '');
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (piece) {
+      setBody(piece.body || '');
+      setNotes(piece.notes || '');
+    }
+  }, [piece]);
 
   const saveMutation = useMutation({
     mutationFn: () => updateContent(id, { body, notes }),
@@ -46,12 +46,22 @@ export default function ContentDetailPage() {
   });
 
   if (isLoading) return <p className="text-[var(--muted-foreground)]">Loading...</p>;
+
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+        <AlertCircle size={16} />
+        Failed to load content piece.
+      </div>
+    );
+  }
+
   if (!piece) return <p>Content not found</p>;
 
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link href="/content" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+        <Link href="/content" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]" aria-label="Back to content board">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
@@ -73,13 +83,21 @@ export default function ContentDetailPage() {
             <button
               key={nextStatus}
               onClick={() => statusMutation.mutate(nextStatus)}
-              className="px-3 py-1.5 text-sm bg-[var(--primary)] text-white rounded-lg hover:opacity-90"
+              disabled={statusMutation.isPending}
+              className="px-3 py-1.5 text-sm bg-[var(--primary)] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
             >
               Move to {nextStatus}
             </button>
           ))}
         </div>
       </div>
+
+      {(saveMutation.isError || statusMutation.isError) && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          {saveMutation.isError ? 'Failed to save changes.' : 'Failed to update status.'}
+        </div>
+      )}
 
       {/* Notes */}
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">

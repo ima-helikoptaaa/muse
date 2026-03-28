@@ -3,14 +3,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getArticles, getSources, fetchAllSources, triggerDiscovery } from '@/lib/api';
+import type { RawArticle, Source } from '@/lib/api';
+import { SourceType } from '@muse/shared';
 import { formatDate } from '@/lib/utils';
-import { Search, RefreshCw, ExternalLink } from 'lucide-react';
+import { Search, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
+
+const SOURCE_TYPES = Object.values(SourceType);
 
 export default function DiscoverPage() {
   const queryClient = useQueryClient();
   const [sourceType, setSourceType] = useState<string>('');
 
-  const { data: articles, isLoading } = useQuery({
+  const { data: articles, isLoading, isError } = useQuery({
     queryKey: ['articles', sourceType],
     queryFn: () => getArticles(sourceType ? { sourceType } : {}),
   });
@@ -40,6 +44,7 @@ export default function DiscoverPage() {
           onClick={() => fetchMutation.mutate()}
           disabled={fetchMutation.isPending}
           className="flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+          aria-label="Fetch all sources"
         >
           <RefreshCw
             size={16}
@@ -49,6 +54,13 @@ export default function DiscoverPage() {
         </button>
       </div>
 
+      {fetchMutation.isError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to fetch sources. Please try again.
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-2">
         <select
@@ -57,22 +69,25 @@ export default function DiscoverPage() {
           className="bg-[var(--muted)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
         >
           <option value="">All Sources</option>
-          {['ARXIV', 'HACKER_NEWS', 'REDDIT', 'GITHUB_TRENDING', 'HUGGINGFACE', 'TECH_BLOG', 'PRODUCT_HUNT'].map(
-            (type) => (
-              <option key={type} value={type}>
-                {type.replace(/_/g, ' ')}
-              </option>
-            ),
-          )}
+          {SOURCE_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type.replace(/_/g, ' ')}
+            </option>
+          ))}
         </select>
       </div>
 
       {/* Articles List */}
       {isLoading ? (
         <p className="text-[var(--muted-foreground)]">Loading articles...</p>
+      ) : isError ? (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to load articles.
+        </div>
       ) : (
         <div className="space-y-3">
-          {articles?.map((article: any) => (
+          {articles?.map((article: RawArticle) => (
             <div
               key={article.id}
               className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4"
@@ -108,6 +123,7 @@ export default function DiscoverPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                    aria-label={`Open ${article.title}`}
                   >
                     <ExternalLink size={16} />
                   </a>

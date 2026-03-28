@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-import { createHash } from 'crypto';
 import Parser from 'rss-parser';
 import { Source } from '@prisma/client';
 import { FetchedArticle } from '@muse/shared';

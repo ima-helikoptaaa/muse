@@ -82,25 +82,27 @@ export class ContentService {
     scheduledDate: Date,
     scheduledTime?: string,
   ) {
-    const piece = await this.prisma.contentPiece.findUnique({
-      where: { id },
-    });
-    if (!piece) throw new NotFoundException('Content piece not found');
+    return this.prisma.$transaction(async (tx) => {
+      const piece = await tx.contentPiece.findUnique({
+        where: { id },
+      });
+      if (!piece) throw new NotFoundException('Content piece not found');
 
-    await this.prisma.contentPiece.update({
-      where: { id },
-      data: { scheduledFor: scheduledDate },
-    });
+      await tx.contentPiece.update({
+        where: { id },
+        data: { scheduledFor: scheduledDate },
+      });
 
-    return this.prisma.contentCalendar.upsert({
-      where: { contentPieceId: id },
-      update: { scheduledDate, scheduledTime, platform: piece.targetPlatform },
-      create: {
-        contentPieceId: id,
-        scheduledDate,
-        scheduledTime,
-        platform: piece.targetPlatform,
-      },
+      return tx.contentCalendar.upsert({
+        where: { contentPieceId: id },
+        update: { scheduledDate, scheduledTime, platform: piece.targetPlatform },
+        create: {
+          contentPieceId: id,
+          scheduledDate,
+          scheduledTime,
+          platform: piece.targetPlatform,
+        },
+      });
     });
   }
 

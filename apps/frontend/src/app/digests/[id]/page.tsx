@@ -2,16 +2,17 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDigest, generateIdeas } from '@/lib/api';
+import type { DigestItem } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, ExternalLink, Tag } from 'lucide-react';
+import { ArrowLeft, Sparkles, ExternalLink, AlertCircle } from 'lucide-react';
 
 export default function DigestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 
-  const { data: digest, isLoading } = useQuery({
+  const { data: digest, isLoading, isError } = useQuery({
     queryKey: ['digest', id],
     queryFn: () => getDigest(id),
   });
@@ -24,12 +25,22 @@ export default function DigestDetailPage() {
   });
 
   if (isLoading) return <p className="text-[var(--muted-foreground)]">Loading...</p>;
+
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+        <AlertCircle size={16} />
+        Failed to load digest.
+      </div>
+    );
+  }
+
   if (!digest) return <p>Digest not found</p>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/digests" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+        <Link href="/digests" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]" aria-label="Back to digests">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
@@ -48,6 +59,13 @@ export default function DigestDetailPage() {
         </button>
       </div>
 
+      {ideationMutation.isError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to generate ideas. Please try again.
+        </div>
+      )}
+
       {digest.summary && (
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
           <p className="text-sm">{digest.summary}</p>
@@ -55,7 +73,7 @@ export default function DigestDetailPage() {
       )}
 
       <div className="space-y-4">
-        {digest.items?.map((item: any) => (
+        {digest.items?.map((item: DigestItem) => (
           <div
             key={item.id}
             className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5"
@@ -99,6 +117,7 @@ export default function DigestDetailPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  aria-label={`Open ${item.rawArticle.title}`}
                 >
                   <ExternalLink size={16} />
                 </a>

@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { LLM_PROVIDER, ILLMProvider } from './llm-provider.interface';
 import {
   FILTER_SYSTEM_PROMPT,
@@ -37,6 +37,8 @@ export interface GeneratedContentIdea {
 
 @Injectable()
 export class LlmService {
+  private readonly logger = new Logger(LlmService.name);
+
   constructor(
     @Inject(LLM_PROVIDER) private provider: ILLMProvider,
   ) {}
@@ -62,8 +64,11 @@ export class LlmService {
           { role: 'user', content: buildFilterUserPrompt(batch) },
         ]);
         allIds.push(...ids);
-      } catch {
-        // On failure, pass all articles through (don't lose data)
+      } catch (error) {
+        this.logger.error(
+          `Filter batch failed, passing ${batch.length} articles through`,
+          error instanceof Error ? error.stack : error,
+        );
         allIds.push(...batch.map((a) => a.id));
       }
     }

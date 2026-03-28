@@ -2,9 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getKanban, updateContentStatus } from '@/lib/api';
+import type { KanbanColumn, ContentPiece } from '@/lib/api';
 import { statusColor } from '@/lib/utils';
 import Link from 'next/link';
-import { Kanban, GripVertical } from 'lucide-react';
+import { Kanban, AlertCircle } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
   IDEA: 'Ideas',
@@ -16,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function ContentPage() {
   const queryClient = useQueryClient();
-  const { data: columns, isLoading } = useQuery({
+  const { data: columns, isLoading, isError } = useQuery({
     queryKey: ['kanban'],
     queryFn: getKanban,
   });
@@ -39,6 +40,15 @@ export default function ContentPage() {
 
   if (isLoading) return <p className="text-[var(--muted-foreground)]">Loading...</p>;
 
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+        <AlertCircle size={16} />
+        Failed to load content board.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -50,9 +60,16 @@ export default function ContentPage() {
         </p>
       </div>
 
+      {statusMutation.isError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to update status. Please try again.
+        </div>
+      )}
+
       <div className="flex gap-4 overflow-x-auto pb-4">
         {statuses.map((status) => {
-          const column = columns?.find((c: any) => c.status === status);
+          const column = columns?.find((c: KanbanColumn) => c.status === status);
           const pieces = column?.pieces || [];
           return (
             <div
@@ -70,7 +87,7 @@ export default function ContentPage() {
                 </span>
               </div>
               <div className="space-y-2">
-                {pieces.map((piece: any) => (
+                {pieces.map((piece: ContentPiece) => (
                   <div
                     key={piece.id}
                     className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3"

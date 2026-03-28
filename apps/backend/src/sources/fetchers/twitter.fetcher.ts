@@ -27,11 +27,11 @@ export class TwitterFetcher implements ISourceFetcher {
     }
 
     const articles: FetchedArticle[] = [];
-    let retries = 0;
     const MAX_RETRIES = 2;
 
     for (let i = 0; i < accounts.length; i++) {
       const username = accounts[i];
+      let retries = 0;
 
       // Wait for rate limit window to reset if we're out of quota
       await this.waitForRateLimit();
@@ -39,7 +39,6 @@ export class TwitterFetcher implements ISourceFetcher {
       try {
         const { tweets, headers } = await this.fetchViaSyndication(username);
         this.updateRateLimit(headers);
-        retries = 0;
 
         for (const tweet of tweets.slice(0, 10)) {
           if (!tweet.text || tweet.text.length < 30) continue;

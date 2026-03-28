@@ -82,15 +82,15 @@ export class DigestService {
 
     // ─── STEP 6: Pass 2 — Deep comparative ranking ──────
     // Count how many sources each story appeared in (pre-dedup)
+    // Build a title->count lookup once (O(n)) instead of filtering per article (O(n²))
+    const titleCountMap = new Map<string, number>();
+    for (const r of rawArticles) {
+      const key = r.title.toLowerCase();
+      titleCountMap.set(key, (titleCountMap.get(key) || 0) + 1);
+    }
     const crossSourceCounts = new Map<string, number>();
     for (const article of filtered) {
-      // Count raw articles that matched this deduped article's title
-      const titleLower = article.title.toLowerCase();
-      const count = rawArticles.filter(
-        (r) =>
-          r.id === article.id ||
-          r.title.toLowerCase() === titleLower,
-      ).length;
+      const count = titleCountMap.get(article.title.toLowerCase()) || 1;
       crossSourceCounts.set(article.id, count);
     }
 

@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDigests, getPipelineRuns, getKanban } from '@/lib/api';
+import type { PipelineRun, KanbanColumn } from '@/lib/api';
 import { formatDate, statusColor } from '@/lib/utils';
 import {
   BookOpen,
@@ -9,29 +11,40 @@ import {
   FileText,
   Activity,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { data: digests } = useQuery({
+  const { data: digests, isLoading: digestsLoading, isError: digestsError } = useQuery({
     queryKey: ['digests'],
     queryFn: () => getDigests(1),
   });
-  const { data: runs } = useQuery({
+  const { data: runs, isLoading: runsLoading, isError: runsError } = useQuery({
     queryKey: ['pipeline-runs'],
     queryFn: () => getPipelineRuns(5),
   });
-  const { data: kanban } = useQuery({
+  const { data: kanban, isLoading: kanbanLoading, isError: kanbanError } = useQuery({
     queryKey: ['kanban'],
     queryFn: getKanban,
   });
 
-  const contentCounts = kanban?.reduce(
-    (acc: Record<string, number>, col: any) => {
-      acc[col.status] = col.pieces?.length || 0;
-      return acc;
-    },
-    {} as Record<string, number>,
+  const contentCounts = useMemo(
+    () =>
+      kanban?.reduce(
+        (acc: Record<string, number>, col: KanbanColumn) => {
+          acc[col.status] = col.pieces?.length || 0;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+    [kanban],
   );
+
+  const isLoading = digestsLoading || runsLoading || kanbanLoading;
+
+  if (isLoading) {
+    return <p className="text-[var(--muted-foreground)]">Loading dashboard...</p>;
+  }
 
   return (
     <div className="space-y-8">
@@ -41,6 +54,13 @@ export default function DashboardPage() {
           Your AI content engine at a glance
         </p>
       </div>
+
+      {(digestsError || runsError || kanbanError) && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          Failed to load some dashboard data. Please try refreshing.
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -80,7 +100,7 @@ export default function DashboardPage() {
           </p>
         ) : (
           <div className="space-y-2">
-            {runs?.map((run: any) => (
+            {runs?.map((run: PipelineRun) => (
               <div
                 key={run.id}
                 className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
