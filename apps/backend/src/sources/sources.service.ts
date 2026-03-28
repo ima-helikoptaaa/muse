@@ -229,7 +229,7 @@ export class SourcesService {
       this.prisma.rawArticle.findMany({
         where,
         include: { source: true },
-        orderBy: { fetchedAt: 'desc' },
+        orderBy: [{ score: 'desc' }, { fetchedAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
