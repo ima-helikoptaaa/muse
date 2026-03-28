@@ -105,7 +105,7 @@ export class LlmService {
           content: buildRankUserPrompt(articles, personalContext),
         },
       ],
-      { model: 'gemini-3.1-pro-preview' },
+      { model: 'gemini-3.1-pro-preview', maxTokens: 32768 },
     );
   }
 
