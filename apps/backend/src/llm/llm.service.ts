@@ -49,7 +49,7 @@ export class LlmService {
    * Uses minimal context (title + short summary) to be fast and cheap.
    */
   async filterArticles(
-    articles: { id: string; title: string; summary?: string; source: string }[],
+    articles: { id: string; title: string; summary?: string; source: string; score?: number; publishedAge?: string }[],
   ): Promise<string[]> {
     if (articles.length === 0) return [];
 
@@ -90,18 +90,23 @@ export class LlmService {
       url?: string;
       source: string;
       crossSourceCount?: number;
+      score?: number;
+      publishedAge?: string;
     }[],
     personalContext?: string,
   ): Promise<RankedArticle[]> {
     if (articles.length === 0) return [];
 
-    return this.provider.completeJSON<RankedArticle[]>([
-      { role: 'system', content: RANK_SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: buildRankUserPrompt(articles, personalContext),
-      },
-    ]);
+    return this.provider.completeJSON<RankedArticle[]>(
+      [
+        { role: 'system', content: RANK_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: buildRankUserPrompt(articles, personalContext),
+        },
+      ],
+      { model: 'gemini-3.1-pro-preview' },
+    );
   }
 
   async summarizeArticle(title: string, content: string): Promise<string> {

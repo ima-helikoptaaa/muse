@@ -29,7 +29,7 @@ export class TrendService {
       topicTags?: string[];
     }[],
   ): Promise<DetectedTrend[]> {
-    if (articles.length < 5) return [];
+    if (articles.length === 0) return [];
 
     const articleList = articles
       .map(
@@ -42,14 +42,15 @@ export class TrendService {
       const trends = await this.llmProvider.completeJSON<DetectedTrend[]>([
         {
           role: 'system',
-          content: `You are a trend analyst for AI/ML developments. Given a list of articles, identify emerging themes — topics that appear across multiple articles suggesting a trend or significant development.
+          content: `You are a trend analyst for AI/ML developments. Given a list of articles, identify two types of signals:
 
-Only report trends backed by 2+ articles. Focus on:
-- New capabilities or breakthroughs appearing from multiple sources
-- Shifts in the field (e.g., "move toward smaller models", "agent frameworks consolidating")
-- Hot topics getting unusual attention
+1. **Standalone Breakthroughs** — A single article that represents a genuinely novel contribution: new architecture, new SOTA result, new paradigm, new open-source release with real substance. These do NOT need 2+ articles — one groundbreaking item is enough. Mark these with articleCount: 1.
 
-Return a JSON array of trends.`,
+2. **Emerging Trends** — Themes that appear across 2+ articles suggesting a broader shift or convergence. E.g., "move toward smaller models", "agent frameworks consolidating", "new attention mechanisms".
+
+Prioritize breakthroughs and novelty over popularity. A single paper introducing a new quantization method or a new memory architecture is more significant than 5 articles about the same product launch.
+
+Return a JSON array combining both types.`,
         },
         {
           role: 'user',
@@ -57,9 +58,9 @@ Return a JSON array of trends.`,
 
 ${articleList}
 
-Return a JSON array with objects: { "theme": string (short title), "description": string (2-3 sentences about the trend), "articleCount": number, "articleIds": string[] (IDs of related articles), "significance": string (why this trend matters) }
+Return a JSON array with objects: { "theme": string (short title), "description": string (2-3 sentences), "articleCount": number, "articleIds": string[] (IDs of related articles), "significance": string (why this matters) }
 
-Only include trends with 2+ related articles. Respond with a JSON array wrapped in \`\`\`json code fence.`,
+Include standalone breakthroughs (articleCount: 1) AND multi-article trends (articleCount: 2+). Respond with a JSON array wrapped in \`\`\`json code fence.`,
         },
       ]);
 

@@ -4,7 +4,7 @@ import { LlmService } from '../llm/llm.service';
 import { DedupService } from './dedup.service';
 import { ScraperService } from './scraper.service';
 import { TrendService, DetectedTrend } from './trend.service';
-import { subDays, startOfDay, endOfDay, format } from 'date-fns';
+import { subDays, startOfDay, endOfDay, format, differenceInHours } from 'date-fns';
 
 @Injectable()
 export class DigestService {
@@ -23,21 +23,56 @@ export class DigestService {
     const to = dateTo || endOfDay(subDays(new Date(), 1));
 
     // ─── STEP 1: Fetch raw articles ─────────────────────
-    const rawArticles = await this.prisma.rawArticle.findMany({
+    // Fetch ALL articles in the window (don't pre-filter by score — that drops
+    // fresh breakthroughs with low engagement). Then rank by a composite signal
+    // that balances engagement with recency.
+    const allArticles = await this.prisma.rawArticle.findMany({
       where: {
         fetchedAt: { gte: from, lte: to },
       },
       include: { source: true },
-      orderBy: { score: 'desc' },
-      take: 300,
     });
 
-    if (rawArticles.length === 0) {
+    if (allArticles.length === 0) {
       this.logger.warn('No articles found for digest period');
       return null;
     }
 
-    this.logger.log(`Step 1: Fetched ${rawArticles.length} raw articles`);
+    // Composite scoring: balance raw engagement with recency and source quality.
+    // - Recent items (published in last 24h) get a boost so fresh breakthroughs
+    //   aren't buried by older viral tweets.
+    // - arXiv/tech blog items with score=0 still surface if they're new.
+    const now = new Date();
+    const scored = allArticles.map((a) => {
+      const rawScore = a.score || 0;
+      const publishDate = a.publishedAt || a.fetchedAt;
+      const hoursAgo = Math.max(1, differenceInHours(now, publishDate));
+
+      // Recency multiplier: 2x for <6h old, 1.5x for <24h, 1x for older
+      const recencyBoost = hoursAgo <= 6 ? 2.0 : hoursAgo <= 24 ? 1.5 : 1.0;
+
+      // Source quality floor: arXiv papers and tech blogs are inherently
+      // valuable even with 0 engagement — give them a minimum score
+      const sourceFloor =
+        a.source.type === 'ARXIV' ? 50 :
+        a.source.type === 'TECH_BLOG' ? 30 :
+        a.source.type === 'HUGGINGFACE' ? 20 : 0;
+
+      const effectiveScore = Math.max(rawScore, sourceFloor);
+
+      return {
+        article: a,
+        compositeScore: effectiveScore * recencyBoost,
+      };
+    });
+
+    // Sort by composite score and take top 300
+    scored.sort((a, b) => b.compositeScore - a.compositeScore);
+    const rawArticles = scored.slice(0, 300).map((s) => s.article);
+
+    this.logger.log(
+      `Step 1: Fetched ${allArticles.length} articles, selected top ${rawArticles.length} by composite score (recency + engagement)`,
+    );
 
     // ─── STEP 2: Cross-source deduplication ─────────────
     const deduped = this.dedupService.deduplicate(rawArticles);
@@ -51,6 +86,8 @@ export class DigestService {
       title: a.title,
       summary: a.summary || undefined,
       source: a.source.name,
+      score: a.score || undefined,
+      publishedAge: this.formatAge(a.publishedAt || a.fetchedAt, now),
     }));
 
     const relevantIds = await this.llmService.filterArticles(filterInput);
@@ -107,6 +144,8 @@ export class DigestService {
       url: a.url || undefined,
       source: a.source.name,
       crossSourceCount: crossSourceCounts.get(a.id) || 1,
+      score: a.score || undefined,
+      publishedAge: this.formatAge(a.publishedAt || a.fetchedAt, now),
     }));
 
     const ranked = await this.llmService.rankArticles(
@@ -218,6 +257,15 @@ export class DigestService {
           `- "${c.title}" (${c.format} for ${c.targetPlatform})`,
       )
       .join('\n');
+  }
+
+  private formatAge(date: Date, now: Date): string {
+    const hours = differenceInHours(now, date);
+    if (hours < 1) return 'just now';
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return '1 day ago';
+    return `${days} days ago`;
   }
 
   async getDigest(id: string) {

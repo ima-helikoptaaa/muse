@@ -13,6 +13,7 @@ export interface LLMCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   responseFormat?: 'text' | 'json';
+  model?: string;
 }
 
 export interface LLMCompletionResult {

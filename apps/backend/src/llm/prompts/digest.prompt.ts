@@ -13,20 +13,36 @@ export const FILTER_SYSTEM_PROMPT = `You are an AI content filter. Given a batch
 - AI Safety and Alignment
 - RAG (Retrieval Augmented Generation)
 - Multi-agent systems
+- Novel architectures, attention mechanisms, quantization methods
+- Benchmark results, evals, and model comparisons
 
-Return ONLY the IDs of relevant articles. Be aggressive with filtering — only keep articles that would genuinely interest an AI practitioner building with agents and LLMs. Generic tech news, business/funding news, and tangentially-related articles should be filtered out.`;
+Return ONLY the IDs of relevant articles. Be aggressive with filtering — only keep articles that would genuinely interest an AI practitioner building with agents and LLMs. Generic tech news, business/funding news, and tangentially-related articles should be filtered out.
+
+IMPORTANT — Always keep articles that signal a BREAKTHROUGH or significant release:
+- New model releases, new architectures, new training methods
+- State-of-the-art benchmark results (e.g., "99% on X", "beats GPT-4")
+- Novel research papers (especially from arXiv)
+- New open-source tools, frameworks, or libraries with real substance
+- Even if engagement/score is low, keep items that describe genuinely new technical work.`;
 
 export function buildFilterUserPrompt(
-  articles: { id: string; title: string; summary?: string; source: string }[],
+  articles: { id: string; title: string; summary?: string; source: string; score?: number; publishedAge?: string }[],
 ): string {
   const list = articles
     .map(
-      (a, i) =>
-        `${i + 1}. [${a.source}] "${a.title}"${a.summary ? ` — ${a.summary.slice(0, 150)}` : ''}\n   ID: ${a.id}`,
+      (a, i) => {
+        let line = `${i + 1}. [${a.source}] "${a.title}"`;
+        if (a.score) line += ` (engagement: ${a.score})`;
+        if (a.publishedAge) line += ` (${a.publishedAge})`;
+        if (a.summary) line += `\n   ${a.summary.slice(0, 150)}`;
+        line += `\n   ID: ${a.id}`;
+        return line;
+      },
     )
     .join('\n');
 
   return `Filter the following ${articles.length} articles. Return a JSON array of IDs for ONLY the relevant articles.
+Note: Low engagement does NOT mean low quality — new papers and fresh announcements won't have engagement yet. Judge by CONTENT, not popularity.
 
 ${list}
 
@@ -47,12 +63,18 @@ The reader is deeply interested in:
 - Machine Learning research
 - Foundation Models, RAG, Multi-agent systems
 - AI Safety and Alignment
+- Novel architectures, attention mechanisms, quantization methods
+- Benchmark results and evals
 
 Ranking criteria (in order of importance):
-1. **Novelty** — Is this genuinely new, or a rehash of known stuff?
-2. **Impact** — Will this change how practitioners work?
-3. **Specificity** — Concrete results/tools > vague announcements
-4. **Actionability** — Can the reader use this in their work?
+1. **Breakthrough potential** — Does this represent a genuine breakthrough, new architecture, SOTA result, or paradigm shift? If yes, it should rank near the top regardless of engagement.
+2. **Novelty** — Is this genuinely new, or a rehash of known stuff? Fresh research papers and new releases should rank higher than commentary.
+3. **Recency** — More recent items should be preferred over older ones, all else being equal. Items published in the last 24 hours deserve extra consideration.
+4. **Impact** — Will this change how practitioners work?
+5. **Specificity** — Concrete results/tools/papers > vague announcements or opinions
+6. **Actionability** — Can the reader use this in their work?
+
+IMPORTANT: Do NOT let high social media engagement override substance. A viral tweet with an opinion is less valuable than a new arXiv paper with novel results, even if the paper has zero likes. Judge by CONTENT and SIGNIFICANCE, not popularity.
 
 For each article, provide:
 1. A relevance score from 0.0 to 1.0 (rank them RELATIVE to each other, use the full range)
@@ -71,15 +93,21 @@ export function buildRankUserPrompt(
     url?: string;
     source: string;
     crossSourceCount?: number;
+    score?: number;
+    publishedAge?: string;
   }[],
   personalContext?: string,
 ): string {
   const articleList = articles
     .map((a, i) => {
       let entry = `${i + 1}. [${a.source}] "${a.title}"`;
+      const meta: string[] = [];
       if (a.crossSourceCount && a.crossSourceCount > 1) {
-        entry += ` (appeared in ${a.crossSourceCount} sources)`;
+        meta.push(`appeared in ${a.crossSourceCount} sources`);
       }
+      if (a.score != null) meta.push(`engagement: ${a.score}`);
+      if (a.publishedAge) meta.push(a.publishedAge);
+      if (meta.length > 0) entry += ` (${meta.join(', ')})`;
       if (a.content) {
         entry += `\n   Content: ${a.content.slice(0, 2000)}`;
       } else if (a.summary) {

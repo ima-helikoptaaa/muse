@@ -42,12 +42,15 @@ export class GeminiProvider implements ILLMProvider {
     );
   }
 
+  private readonly defaultModel = 'gemini-3.1-flash-lite-preview';
+
   async complete(
     messages: LLMMessage[],
     options?: LLMCompletionOptions,
   ): Promise<LLMCompletionResult> {
+    const modelId = options?.model || this.defaultModel;
     const model = this.vertexAI.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite-preview',
+      model: modelId,
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
@@ -89,7 +92,7 @@ export class GeminiProvider implements ILLMProvider {
         outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
       },
       provider: this.providerName,
-      model: 'gemini-3.1-flash-lite-preview',
+      model: modelId,
     };
   }
 
