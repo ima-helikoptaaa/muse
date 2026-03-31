@@ -18,11 +18,18 @@ if [ -f "$LOG_FILE" ] && [ "$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$L
 fi
 
 # Acquire exclusive lock (non-blocking) — exit if already running
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  log "Another discovery run is already in progress, exiting."
-  exit 0
+cleanup_lock() { rm -f "$LOCK_FILE"; }
+trap cleanup_lock EXIT
+if [ -f "$LOCK_FILE" ]; then
+  OLD_PID=$(cat "$LOCK_FILE" 2>/dev/null)
+  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+    log "Another discovery run is already in progress (PID $OLD_PID), exiting."
+    trap - EXIT  # don't remove the other process's lock
+    exit 0
+  fi
+  log "Removing stale lock file (PID $OLD_PID no longer running)"
 fi
+echo $$ > "$LOCK_FILE"
 
 log "=== Discovery run starting ==="
 
